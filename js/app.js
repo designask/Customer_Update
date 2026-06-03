@@ -221,6 +221,9 @@ document.getElementById('order-form').addEventListener('submit', (e) => {
     DB.saveOrders(orders);
     resetForm();
     showPage('orders');
+
+    // Auto-generate and show customer link after save
+    setTimeout(() => showCustomerLinkPopup(order.id), 300);
 });
 
 function resetForm() {
@@ -382,6 +385,84 @@ function showShareModal(link) {
     document.execCommand('copy');
     document.body.removeChild(textarea);
     showToast('Customer link copied! Works on any device! ✓');
+}
+
+// Show popup with customer link after order save/update
+function showCustomerLinkPopup(orderId) {
+    const orders = DB.getOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const settings = DB.getSettings();
+    const payload = {
+        order: {
+            customerName: order.customerName,
+            title: order.title,
+            description: order.description,
+            notes: order.notes,
+            level: order.level,
+            deadline: order.deadline,
+            payment: order.payment,
+            totalAmount: order.totalAmount,
+            paidAmount: order.paidAmount,
+            updatedAt: order.updatedAt || order.createdAt
+        },
+        settings: {
+            businessName: settings.businessName || '',
+            businessPhone: settings.businessPhone || '',
+            businessMessage: settings.businessMessage || ''
+        }
+    };
+
+    const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+    const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/');
+    const link = `${baseUrl}customer.html?data=${encoded}`;
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.className = 'link-popup-overlay';
+    popup.innerHTML = `
+        <div class="link-popup">
+            <div class="link-popup-header">
+                <h3><i class="fas fa-share-alt"></i> Customer Link Ready!</h3>
+                <button class="modal-close" onclick="this.closest('.link-popup-overlay').remove()">&times;</button>
+            </div>
+            <p>Share this link with <strong>${order.customerName}</strong> to show order status:</p>
+            <div class="link-box">
+                <input type="text" value="${link}" id="popup-link-input" readonly>
+            </div>
+            <div class="link-popup-actions">
+                <button class="btn btn-primary" onclick="copyPopupLink()">
+                    <i class="fas fa-copy"></i> Copy Link
+                </button>
+                <button class="btn btn-secondary" onclick="shareViaWhatsApp('${encodeURIComponent(link)}', '${order.customerName}')">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </button>
+                <button class="btn btn-secondary" onclick="this.closest('.link-popup-overlay').remove()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+            <p class="link-popup-note">This link works on any device - customer can open it on their phone!</p>
+        </div>
+    `;
+    document.body.appendChild(popup);
+}
+
+function copyPopupLink() {
+    const input = document.getElementById('popup-link-input');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        showToast('Link copied! Share it with the customer ✓');
+    }).catch(() => {
+        document.execCommand('copy');
+        showToast('Link copied! Share it with the customer ✓');
+    });
+}
+
+function shareViaWhatsApp(encodedLink, customerName) {
+    const message = `Hi ${customerName}, here's your order status update: ${decodeURIComponent(encodedLink)}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
 }
 
 // === Tasks ===
@@ -569,3 +650,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('order-start').value = new Date().toISOString().split('T')[0];
     refreshDashboard();
 });
+
+// === Logout ===
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('cu_session');
+        sessionStorage.removeItem('cu_session');
+        window.location.href = 'login.html';
+    }
+}

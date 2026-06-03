@@ -649,3 +649,93 @@ textarea.input-field {
         font-size: 1.2rem;
     }
 }
+
+
+
+/* === Link Popup === */
+.link-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+    animation: fadeInOverlay 0.2s ease;
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.link-popup {
+    background: #fff;
+    border-radius: 16px;
+    padding: 30px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.link-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.link-popup-header h3 {
+    font-size: 1.2rem;
+    color: var(--primary);
+}
+
+.link-popup p {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.link-box {
+    margin-bottom: 16px;
+}
+
+.link-box input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.link-popup-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.link-popup-actions .btn {
+    flex: 1;
+    min-width: 100px;
+    justify-content: center;
+}
+
+.link-popup-note {
+    text-align: center;
+    font-size: 0.8rem !important;
+    color: var(--success) !important;
+    font-weight: 600;
+}
