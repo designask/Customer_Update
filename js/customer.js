@@ -1,6 +1,6 @@
 // === Customer View - Order Status Page ===
-// Data is embedded in the URL itself (base64 encoded)
-// So it works from ANY device/browser!
+// Reads order data from URL hash (compressed & encoded)
+// Works on ANY device/browser!
 
 // Level definitions
 const LEVELS = {
@@ -12,20 +12,32 @@ const LEVELS = {
     6: { name: 'Delivered', icon: 'fas fa-truck' }
 };
 
-// Decode order data from URL
+// Decode order data from URL hash (after #)
 function getOrderFromURL() {
+    // Try hash-based data first (short & reliable)
+    const hash = window.location.hash.substring(1);
+    if (hash) {
+        try {
+            const jsonStr = decodeURIComponent(hash);
+            return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error('Hash decode failed:', e);
+        }
+    }
+
+    // Fallback: try query param ?data=
     const params = new URLSearchParams(window.location.search);
     const data = params.get('data');
-
-    if (!data) return null;
-
-    try {
-        const jsonStr = decodeURIComponent(atob(data));
-        return JSON.parse(jsonStr);
-    } catch (e) {
-        console.error('Failed to decode order data:', e);
-        return null;
+    if (data) {
+        try {
+            const jsonStr = decodeURIComponent(atob(data));
+            return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error('Query param decode failed:', e);
+        }
     }
+
+    return null;
 }
 
 // Initialize

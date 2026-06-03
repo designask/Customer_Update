@@ -333,21 +333,22 @@ document.getElementById('order-modal').addEventListener('click', (e) => {
 });
 
 // === Customer Link ===
-// Encode order data into URL so it works on ANY device/browser
-function copyCustomerLink(orderId) {
+// Generate customer link using URL hash (# fragment)
+// Hash is NOT sent to server, stays intact in WhatsApp/SMS, works everywhere
+function generateCustomerLink(orderId) {
     const orders = DB.getOrders();
     const order = orders.find(o => o.id === orderId);
-    if (!order) return showToast('Order not found');
+    if (!order) return null;
 
     const settings = DB.getSettings();
 
-    // Create data payload with only customer-visible info
+    // Minimal payload - only what customer needs to see
     const payload = {
         order: {
             customerName: order.customerName,
             title: order.title,
-            description: order.description,
-            notes: order.notes,
+            description: order.description || '',
+            notes: order.notes || '',
             level: order.level,
             deadline: order.deadline,
             payment: order.payment,
@@ -362,15 +363,20 @@ function copyCustomerLink(orderId) {
         }
     };
 
-    // Encode to base64
-    const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-    const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-    const link = `${baseUrl}customer.html?data=${encoded}`;
+    // Use hash fragment (#) - WhatsApp/SMS don't truncate this
+    const jsonStr = JSON.stringify(payload);
+    const encoded = encodeURIComponent(jsonStr);
+    const baseUrl = window.location.href.split('/').slice(0, -1).join('/') + '/';
+    return `${baseUrl}customer.html#${encoded}`;
+}
+
+function copyCustomerLink(orderId) {
+    const link = generateCustomerLink(orderId);
+    if (!link) return showToast('Order not found');
 
     navigator.clipboard.writeText(link).then(() => {
         showToast('Customer link copied! Works on any device! ✓');
     }).catch(() => {
-        // Fallback for older browsers
         showShareModal(link);
     });
 }
@@ -393,30 +399,12 @@ function showCustomerLinkPopup(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const settings = DB.getSettings();
-    const payload = {
-        order: {
-            customerName: order.customerName,
-            title: order.title,
-            description: order.description,
-            notes: order.notes,
-            level: order.level,
-            deadline: order.deadline,
-            payment: order.payment,
-            totalAmount: order.totalAmount,
-            paidAmount: order.paidAmount,
-            updatedAt: order.updatedAt || order.createdAt
-        },
-        settings: {
-            businessName: settings.businessName || '',
-            businessPhone: settings.businessPhone || '',
-            businessMessage: settings.businessMessage || ''
-        }
-    };
+    const link = generateCustomerLink(orderId);
+    if (!link) return;
 
-    const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-    const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-    const link = `${baseUrl}customer.html?data=${encoded}`;
+    // Remove existing popup if any
+    const existing = document.querySelector('.link-popup-overlay');
+    if (existing) existing.remove();
 
     // Create popup
     const popup = document.createElement('div');
@@ -429,38 +417,50 @@ function showCustomerLinkPopup(orderId) {
             </div>
             <p>Share this link with <strong>${order.customerName}</strong> to show order status:</p>
             <div class="link-box">
-                <input type="text" value="${link}" id="popup-link-input" readonly>
+                <textarea id="popup-link-input" readonly rows="3" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.75rem;resize:none;background:#f8fafc;">${link}</textarea>
             </div>
             <div class="link-popup-actions">
                 <button class="btn btn-primary" onclick="copyPopupLink()">
                     <i class="fas fa-copy"></i> Copy Link
                 </button>
-                <button class="btn btn-secondary" onclick="shareViaWhatsApp('${encodeURIComponent(link)}', '${order.customerName}')">
+                <button class="btn btn-secondary" style="background:#25d366;color:#fff;border:none;" onclick="shareViaWhatsApp()">
                     <i class="fab fa-whatsapp"></i> WhatsApp
                 </button>
                 <button class="btn btn-secondary" onclick="this.closest('.link-popup-overlay').remove()">
                     <i class="fas fa-times"></i> Close
                 </button>
             </div>
-            <p class="link-popup-note">This link works on any device - customer can open it on their phone!</p>
+            <p class="link-popup-note">This link works on any device/phone!</p>
         </div>
     `;
     document.body.appendChild(popup);
+
+    // Store link for share functions
+    popup.dataset.link = link;
+    popup.dataset.customerName = order.customerName;
 }
 
 function copyPopupLink() {
-    const input = document.getElementById('popup-link-input');
-    input.select();
-    navigator.clipboard.writeText(input.value).then(() => {
+    const popup = document.querySelector('.link-popup-overlay');
+    const link = popup ? popup.dataset.link : document.getElementById('popup-link-input').value;
+
+    navigator.clipboard.writeText(link).then(() => {
         showToast('Link copied! Share it with the customer ✓');
     }).catch(() => {
+        const input = document.getElementById('popup-link-input');
+        input.select();
         document.execCommand('copy');
         showToast('Link copied! Share it with the customer ✓');
     });
 }
 
-function shareViaWhatsApp(encodedLink, customerName) {
-    const message = `Hi ${customerName}, here's your order status update: ${decodeURIComponent(encodedLink)}`;
+function shareViaWhatsApp() {
+    const popup = document.querySelector('.link-popup-overlay');
+    if (!popup) return;
+
+    const link = popup.dataset.link;
+    const customerName = popup.dataset.customerName;
+    const message = `Hi ${customerName}, here's your order status update:\n${link}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
 }
