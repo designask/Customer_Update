@@ -1,6 +1,7 @@
 // === Customer View - Order Status Page ===
-// Reads order data from URL hash (compressed & encoded)
-// Works on ANY device/browser!
+// Fetches LIVE data from cloud - always shows latest update!
+
+const JSONBLOB_API = 'https://jsonblob.com/api/jsonBlob';
 
 // Level definitions
 const LEVELS = {
@@ -12,44 +13,42 @@ const LEVELS = {
     6: { name: 'Delivered', icon: 'fas fa-truck' }
 };
 
-// Decode order data from URL hash (after #)
-function getOrderFromURL() {
-    // Try hash-based data first (short & reliable)
-    const hash = window.location.hash.substring(1);
-    if (hash) {
-        try {
-            const jsonStr = decodeURIComponent(hash);
-            return JSON.parse(jsonStr);
-        } catch (e) {
-            console.error('Hash decode failed:', e);
-        }
-    }
-
-    // Fallback: try query param ?data=
+// Get blob ID from URL
+function getBlobId() {
+    // Try: customer.html?id=BLOB_ID
     const params = new URLSearchParams(window.location.search);
-    const data = params.get('data');
-    if (data) {
-        try {
-            const jsonStr = decodeURIComponent(atob(data));
-            return JSON.parse(jsonStr);
-        } catch (e) {
-            console.error('Query param decode failed:', e);
-        }
-    }
+    return params.get('id');
+}
 
-    return null;
+// Fetch order data from cloud
+async function fetchOrderData(blobId) {
+    try {
+        const response = await fetch(`${JSONBLOB_API}/${blobId}`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (err) {
+        console.error('Failed to fetch order:', err);
+        return null;
+    }
 }
 
 // Initialize
-function init() {
-    const orderData = getOrderFromURL();
+async function init() {
+    const blobId = getBlobId();
 
-    if (!orderData || !orderData.order) {
+    if (!blobId) {
         showError();
         return;
     }
 
-    renderOrderStatus(orderData.order, orderData.settings || {});
+    const data = await fetchOrderData(blobId);
+
+    if (!data || !data.order) {
+        showError();
+        return;
+    }
+
+    renderOrderStatus(data.order, data.settings || {});
 }
 
 function showError() {

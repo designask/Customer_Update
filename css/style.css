@@ -739,3 +739,46 @@ textarea.input-field {
     color: var(--success) !important;
     font-weight: 600;
 }
+
+
+
+/* === WhatsApp Button === */
+.btn-whatsapp {
+    background: #25d366 !important;
+    color: #fff !important;
+    border: none !important;
+}
+
+.btn-whatsapp:hover {
+    background: #1da851 !important;
+}
+
+/* === Link Features List === */
+.link-features {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f0fdf4;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.link-features div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* === Link box input === */
+.link-box input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    background: var(--bg);
+    color: var(--text);
+    margin-bottom: 12px;
+}

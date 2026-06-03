@@ -56,7 +56,7 @@
             margin-bottom: 8px;
         }
 
-        .login-card p {
+        .login-card .subtitle {
             color: #64748b;
             font-size: 0.9rem;
             margin-bottom: 30px;
@@ -116,6 +116,10 @@
             cursor: pointer;
             transition: all 0.2s;
             margin-top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .login-btn:hover {
@@ -127,11 +131,20 @@
             transform: translateY(0);
         }
 
+        .login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .error-msg {
             color: #dc2626;
             font-size: 0.85rem;
             margin-top: 12px;
             display: none;
+            padding: 8px 12px;
+            background: #fef2f2;
+            border-radius: 8px;
         }
 
         .error-msg.show {
@@ -172,23 +185,35 @@
             margin: 0 10px;
         }
 
-        .remember-me {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: #64748b;
-            margin-bottom: 10px;
-        }
-
-        .remember-me input {
-            accent-color: #2563eb;
-        }
-
         .footer-text {
             margin-top: 20px;
             font-size: 0.8rem;
             color: #94a3b8;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 20px;
+            font-size: 0.8rem;
+            color: #1e40af;
+            text-align: left;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -199,10 +224,15 @@
                 <i class="fas fa-bell"></i>
             </div>
             <h1>Customer Update</h1>
-            <p>Sign in to manage your orders</p>
+            <p class="subtitle">Sign in to manage your orders</p>
 
             <!-- Login Form -->
             <div id="login-form">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i> 
+                    Same username & PIN works on any device! 
+                    Login from phone, laptop, or tablet.
+                </div>
                 <div class="form-group">
                     <label>Username</label>
                     <div class="input-wrapper">
@@ -217,33 +247,34 @@
                         <input type="password" id="login-pin" class="input-field" placeholder="Enter PIN or password" autocomplete="current-password">
                     </div>
                 </div>
-                <label class="remember-me">
-                    <input type="checkbox" id="remember-me" checked> Remember me on this device
-                </label>
-                <button class="login-btn" onclick="handleLogin()">
+                <button class="login-btn" id="login-btn" onclick="handleLogin()">
                     <i class="fas fa-sign-in-alt"></i> Sign In
                 </button>
-                <div class="error-msg" id="error-msg">Invalid username or PIN</div>
-                <div class="divider">or</div>
+                <div class="error-msg" id="error-msg"></div>
+                <div class="divider">first time?</div>
                 <button class="login-btn" style="background: linear-gradient(135deg, #16a34a, #059669);" onclick="showSetup()">
-                    <i class="fas fa-user-plus"></i> First Time? Set Up Account
+                    <i class="fas fa-user-plus"></i> Create New Account
                 </button>
             </div>
 
             <!-- Setup Form -->
             <div id="setup-form" class="setup-section">
+                <div class="info-box">
+                    <i class="fas fa-info-circle"></i> 
+                    Create your account once. Then use the same username & PIN to login from any device!
+                </div>
                 <div class="form-group">
                     <label>Choose a Username</label>
                     <div class="input-wrapper">
                         <i class="fas fa-user"></i>
-                        <input type="text" id="setup-username" class="input-field" placeholder="Your username">
+                        <input type="text" id="setup-username" class="input-field" placeholder="Your username (min 3 chars)">
                     </div>
                 </div>
                 <div class="form-group">
                     <label>Set a PIN / Password</label>
                     <div class="input-wrapper">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="setup-pin" class="input-field" placeholder="Choose a PIN or password">
+                        <input type="password" id="setup-pin" class="input-field" placeholder="Choose a PIN (min 4 chars)">
                     </div>
                 </div>
                 <div class="form-group">
@@ -253,20 +284,21 @@
                         <input type="password" id="setup-pin-confirm" class="input-field" placeholder="Confirm your PIN">
                     </div>
                 </div>
-                <button class="login-btn" onclick="handleSetup()">
+                <button class="login-btn" id="setup-btn" onclick="handleSetup()">
                     <i class="fas fa-check"></i> Create Account
                 </button>
-                <div class="error-msg" id="setup-error">Error</div>
-                <div class="divider">or</div>
+                <div class="error-msg" id="setup-error"></div>
+                <div class="divider">already have an account?</div>
                 <button class="login-btn" style="background: #64748b;" onclick="showLogin()">
                     <i class="fas fa-arrow-left"></i> Back to Login
                 </button>
             </div>
 
-            <p class="footer-text">Your data is stored securely in this browser</p>
+            <p class="footer-text">Data syncs across all your devices</p>
         </div>
     </div>
 
+    <script src="js/storage.js"></script>
     <script>
         // Check if already logged in
         (function() {
@@ -286,25 +318,18 @@
             document.getElementById('setup-form').classList.remove('show');
         }
 
-        function handleSetup() {
-            const username = document.getElementById('setup-username').value.trim();
+        async function handleSetup() {
+            const username = document.getElementById('setup-username').value.trim().toLowerCase();
             const pin = document.getElementById('setup-pin').value;
             const pinConfirm = document.getElementById('setup-pin-confirm').value;
             const errorEl = document.getElementById('setup-error');
+            const btn = document.getElementById('setup-btn');
 
-            if (!username) {
-                showError(errorEl, 'Username is required');
-                return;
-            }
-            if (username.length < 3) {
+            if (!username || username.length < 3) {
                 showError(errorEl, 'Username must be at least 3 characters');
                 return;
             }
-            if (!pin) {
-                showError(errorEl, 'PIN/Password is required');
-                return;
-            }
-            if (pin.length < 4) {
+            if (!pin || pin.length < 4) {
                 showError(errorEl, 'PIN must be at least 4 characters');
                 return;
             }
@@ -313,84 +338,78 @@
                 return;
             }
 
-            // Check if account already exists
-            const existing = localStorage.getItem('cu_auth');
-            if (existing) {
-                showError(errorEl, 'Account already exists. Please login instead.');
-                return;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Creating...';
+
+            try {
+                // Create account on cloud storage
+                const result = await CloudDB.createAccount(username, pin);
+                
+                if (!result.success) {
+                    showError(errorEl, result.error || 'Failed to create account');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Create Account';
+                    return;
+                }
+
+                // Save session locally
+                localStorage.setItem('cu_session', JSON.stringify({
+                    username: username,
+                    storageId: result.storageId,
+                    loggedInAt: new Date().toISOString()
+                }));
+
+                window.location.href = 'index.html';
+            } catch (err) {
+                showError(errorEl, 'Network error. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i> Create Account';
             }
-
-            // Save credentials (hashed)
-            const auth = {
-                username: username,
-                pinHash: simpleHash(pin),
-                createdAt: new Date().toISOString()
-            };
-            localStorage.setItem('cu_auth', JSON.stringify(auth));
-
-            // Auto login
-            localStorage.setItem('cu_session', JSON.stringify({
-                username: username,
-                loggedInAt: new Date().toISOString()
-            }));
-
-            window.location.href = 'index.html';
         }
 
-        function handleLogin() {
-            const username = document.getElementById('login-username').value.trim();
+        async function handleLogin() {
+            const username = document.getElementById('login-username').value.trim().toLowerCase();
             const pin = document.getElementById('login-pin').value;
             const errorEl = document.getElementById('error-msg');
-            const remember = document.getElementById('remember-me').checked;
+            const btn = document.getElementById('login-btn');
 
             if (!username || !pin) {
                 showError(errorEl, 'Please enter username and PIN');
                 return;
             }
 
-            const auth = JSON.parse(localStorage.getItem('cu_auth') || 'null');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Signing in...';
 
-            if (!auth) {
-                showError(errorEl, 'No account found. Please set up first.');
-                return;
-            }
+            try {
+                const result = await CloudDB.login(username, pin);
 
-            if (auth.username !== username || auth.pinHash !== simpleHash(pin)) {
-                showError(errorEl, 'Invalid username or PIN');
-                return;
-            }
+                if (!result.success) {
+                    showError(errorEl, result.error || 'Invalid username or PIN');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+                    return;
+                }
 
-            // Login success
-            if (remember) {
+                // Save session locally
                 localStorage.setItem('cu_session', JSON.stringify({
                     username: username,
+                    storageId: result.storageId,
                     loggedInAt: new Date().toISOString()
                 }));
-            } else {
-                sessionStorage.setItem('cu_session', JSON.stringify({
-                    username: username,
-                    loggedInAt: new Date().toISOString()
-                }));
-            }
 
-            window.location.href = 'index.html';
+                window.location.href = 'index.html';
+            } catch (err) {
+                showError(errorEl, 'Network error. Please check your internet.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
         }
 
         function showError(el, msg) {
             el.textContent = msg;
             el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 3000);
-        }
-
-        // Simple hash function (not for production security, but good for client-side PIN)
-        function simpleHash(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return hash.toString(36);
+            setTimeout(() => el.classList.remove('show'), 5000);
         }
 
         // Enter key support

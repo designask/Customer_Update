@@ -1,6 +1,14 @@
 // === Customer Update System - Admin App ===
+// Uses cloud storage (jsonblob.com) for data
+// Works from any device with same account!
 
-// Data Management
+// === Session ===
+function getSession() {
+    const s = localStorage.getItem('cu_session');
+    return s ? JSON.parse(s) : null;
+}
+
+// === Local Cache (for fast UI) + Cloud Sync ===
 const DB = {
     getOrders: () => JSON.parse(localStorage.getItem('cu_orders') || '[]'),
     saveOrders: (orders) => localStorage.setItem('cu_orders', JSON.stringify(orders)),
@@ -9,6 +17,49 @@ const DB = {
     getSettings: () => JSON.parse(localStorage.getItem('cu_settings') || '{}'),
     saveSettings: (settings) => localStorage.setItem('cu_settings', JSON.stringify(settings))
 };
+
+// Sync to cloud
+async function syncToCloud() {
+    const session = getSession();
+    if (!session || !session.storageId) return;
+
+    const data = {
+        auth: { username: session.username, pinHash: '_preserved_', createdAt: session.loggedInAt },
+        orders: DB.getOrders(),
+        tasks: DB.getTasks(),
+        settings: DB.getSettings()
+    };
+
+    // Preserve auth pinHash from cloud
+    try {
+        const cloudData = await CloudDB.fetchData(session.storageId);
+        if (cloudData && cloudData.auth) {
+            data.auth = cloudData.auth;
+        }
+    } catch (e) { /* use local */ }
+
+    await CloudDB.saveData(session.storageId, data);
+}
+
+// Sync from cloud (on load)
+async function syncFromCloud() {
+    const session = getSession();
+    if (!session || !session.storageId) return;
+
+    try {
+        const data = await CloudDB.fetchData(session.storageId);
+        if (!data) return;
+
+        if (data.orders) DB.saveOrders(data.orders);
+        if (data.tasks) DB.saveTasks(data.tasks);
+        if (data.settings) DB.saveSettings(data.settings);
+
+        // Refresh current page
+        refreshDashboard();
+    } catch (err) {
+        console.log('Cloud sync failed, using local data');
+    }
+}
 
 // Level definitions
 const LEVELS = {
@@ -26,9 +77,9 @@ function showPage(pageName) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
     document.getElementById(`page-${pageName}`).classList.add('active');
-    document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
+    const navEl = document.querySelector(`[data-page="${pageName}"]`);
+    if (navEl) navEl.classList.add('active');
 
-    // Refresh page data
     if (pageName === 'dashboard') refreshDashboard();
     if (pageName === 'orders') refreshOrders();
     if (pageName === 'tasks') refreshTasks();
@@ -37,7 +88,9 @@ function showPage(pageName) {
 
 // Nav click handlers
 document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => showPage(item.dataset.page));
+    item.addEventListener('click', () => {
+        if (item.dataset.page) showPage(item.dataset.page);
+    });
 });
 
 // Mobile sidebar toggle
@@ -58,23 +111,18 @@ function refreshDashboard() {
     const tasks = DB.getTasks();
     const today = new Date().toISOString().split('T')[0];
 
-    // Stats
     const total = orders.length;
     const inProgress = orders.filter(o => o.level > 1 && o.level < 5).length;
     const completed = orders.filter(o => o.level >= 5).length;
-    const overdue = orders.filter(o => {
-        const deadline = new Date(o.deadline);
-        return deadline < new Date() && o.level < 5;
-    }).length;
+    const overdue = orders.filter(o => new Date(o.deadline) < new Date() && o.level < 5).length;
 
     document.getElementById('stat-total').textContent = total;
     document.getElementById('stat-progress').textContent = inProgress;
     document.getElementById('stat-completed').textContent = completed;
     document.getElementById('stat-overdue').textContent = overdue;
 
-    // Recent orders
-    const recentOrders = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
-    const recentHtml = recentOrders.length ? recentOrders.map(o => `
+    const recentOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+    document.getElementById('recent-orders').innerHTML = recentOrders.length ? recentOrders.map(o => `
         <div class="task-item" onclick="viewOrder('${o.id}')">
             <div class="task-info">
                 <div class="task-title">${o.title}</div>
@@ -83,11 +131,9 @@ function refreshDashboard() {
             <span class="badge badge-${o.payment}">${o.payment}</span>
         </div>
     `).join('') : '<div class="empty-state"><i class="fas fa-box"></i><p>No orders yet</p></div>';
-    document.getElementById('recent-orders').innerHTML = recentHtml;
 
-    // Today's tasks
     const todayTasks = tasks.filter(t => t.dueDate === today && !t.completed);
-    const tasksHtml = todayTasks.length ? todayTasks.map(t => `
+    document.getElementById('today-tasks').innerHTML = todayTasks.length ? todayTasks.map(t => `
         <div class="task-item">
             <input type="checkbox" class="task-checkbox" onchange="toggleTask('${t.id}')">
             <div class="task-info">
@@ -96,7 +142,6 @@ function refreshDashboard() {
             </div>
         </div>
     `).join('') : '<div class="empty-state"><i class="fas fa-check-circle"></i><p>No tasks for today</p></div>';
-    document.getElementById('today-tasks').innerHTML = tasksHtml;
 }
 
 function getOrderTitle(orderId) {
@@ -112,26 +157,16 @@ function refreshOrders() {
     const paymentFilter = document.getElementById('filter-payment').value;
 
     let filtered = orders;
-
-    if (search) {
-        filtered = filtered.filter(o =>
-            o.title.toLowerCase().includes(search) ||
-            o.customerName.toLowerCase().includes(search)
-        );
-    }
-
+    if (search) filtered = filtered.filter(o => o.title.toLowerCase().includes(search) || o.customerName.toLowerCase().includes(search));
     if (statusFilter !== 'all') {
         if (statusFilter === 'pending') filtered = filtered.filter(o => o.level === 1);
         else if (statusFilter === 'in-progress') filtered = filtered.filter(o => o.level > 1 && o.level < 5);
         else if (statusFilter === 'completed') filtered = filtered.filter(o => o.level >= 5);
         else if (statusFilter === 'delivered') filtered = filtered.filter(o => o.level === 6);
     }
+    if (paymentFilter !== 'all') filtered = filtered.filter(o => o.payment === paymentFilter);
 
-    if (paymentFilter !== 'all') {
-        filtered = filtered.filter(o => o.payment === paymentFilter);
-    }
-
-    const html = filtered.length ? filtered.map(o => {
+    document.getElementById('orders-list').innerHTML = filtered.length ? filtered.map(o => {
         const timeLeft = getTimeLeft(o.deadline, o.level);
         return `
             <div class="order-card priority-${o.priority}" onclick="viewOrder('${o.id}')">
@@ -150,41 +185,27 @@ function refreshOrders() {
             </div>
         `;
     }).join('') : '<div class="empty-state"><i class="fas fa-box-open"></i><p>No orders found</p></div>';
-
-    document.getElementById('orders-list').innerHTML = html;
 }
 
-function getPaymentLabel(payment) {
-    const labels = { paid: 'Fully Paid', advance: 'Advance', unpaid: 'Unpaid' };
-    return labels[payment] || payment;
+function getPaymentLabel(p) {
+    return { paid: 'Fully Paid', advance: 'Advance', unpaid: 'Unpaid' }[p] || p;
 }
 
 function getTimeLeft(deadline, level) {
     if (level >= 5) return { text: 'Completed', overdue: false };
-    
-    const now = new Date();
-    const dl = new Date(deadline);
-    const diff = dl - now;
-
-    if (diff < 0) {
-        const days = Math.abs(Math.floor(diff / (1000 * 60 * 60 * 24)));
-        return { text: `Overdue by ${days} day(s)`, overdue: true };
-    }
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-
-    if (days > 0) return { text: `${days} days, ${hours} hours remaining`, overdue: false };
-    return { text: `${hours} hours remaining`, overdue: false };
+    const diff = new Date(deadline) - new Date();
+    if (diff < 0) return { text: `Overdue by ${Math.abs(Math.floor(diff / 86400000))} day(s)`, overdue: true };
+    const days = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    return { text: days > 0 ? `${days}d ${hours}h remaining` : `${hours}h remaining`, overdue: false };
 }
 
-// Filter listeners
 document.getElementById('search-orders').addEventListener('input', refreshOrders);
 document.getElementById('filter-status').addEventListener('change', refreshOrders);
 document.getElementById('filter-payment').addEventListener('change', refreshOrders);
 
 // === Order Form ===
-document.getElementById('order-form').addEventListener('submit', (e) => {
+document.getElementById('order-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const orderId = document.getElementById('order-id').value;
@@ -203,27 +224,44 @@ document.getElementById('order-form').addEventListener('submit', (e) => {
         level: parseInt(document.getElementById('order-level').value),
         priority: document.getElementById('order-priority').value,
         notes: document.getElementById('order-notes').value,
+        customerBlobId: null,
         createdAt: orderId ? (DB.getOrders().find(o => o.id === orderId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
 
+    // Preserve customerBlobId if editing
     const orders = DB.getOrders();
     const existingIndex = orders.findIndex(o => o.id === order.id);
-
     if (existingIndex >= 0) {
+        order.customerBlobId = orders[existingIndex].customerBlobId || null;
         orders[existingIndex] = order;
-        showToast('Order updated successfully!');
     } else {
         orders.push(order);
-        showToast('Order created successfully!');
     }
 
     DB.saveOrders(orders);
+    showToast('Order saved! Syncing...');
     resetForm();
     showPage('orders');
 
-    // Auto-generate and show customer link after save
-    setTimeout(() => showCustomerLinkPopup(order.id), 300);
+    // Sync to cloud in background
+    await syncToCloud();
+
+    // Save/update customer blob and show link
+    const settings = DB.getSettings();
+    const result = await CloudDB.saveOrderForCustomer(order, settings);
+    if (result.success) {
+        // Update order with blob ID
+        order.customerBlobId = result.blobId;
+        const updatedOrders = DB.getOrders();
+        const idx = updatedOrders.findIndex(o => o.id === order.id);
+        if (idx >= 0) {
+            updatedOrders[idx].customerBlobId = result.blobId;
+            DB.saveOrders(updatedOrders);
+            await syncToCloud();
+        }
+        showCustomerLinkPopup(order, result.blobId);
+    }
 });
 
 function resetForm() {
@@ -257,15 +295,15 @@ function editOrder(orderId) {
     showPage('add-order');
 }
 
-function deleteOrder(orderId) {
+async function deleteOrder(orderId) {
     if (!confirm('Are you sure you want to delete this order?')) return;
-
     const orders = DB.getOrders().filter(o => o.id !== orderId);
     DB.saveOrders(orders);
     closeModal();
     showToast('Order deleted');
     refreshOrders();
     refreshDashboard();
+    await syncToCloud();
 }
 
 // === Order Modal ===
@@ -278,48 +316,21 @@ function viewOrder(orderId) {
 
     document.getElementById('modal-title').textContent = order.title;
     document.getElementById('modal-body').innerHTML = `
-        <div class="modal-detail-row">
-            <span class="label">Customer</span>
-            <span class="value">${order.customerName}</span>
-        </div>
+        <div class="modal-detail-row"><span class="label">Customer</span><span class="value">${order.customerName}</span></div>
         ${order.customerPhone ? `<div class="modal-detail-row"><span class="label">Phone</span><span class="value">${order.customerPhone}</span></div>` : ''}
-        <div class="modal-detail-row">
-            <span class="label">Status Level</span>
-            <span class="value">Level ${order.level} - ${LEVELS[order.level].name}</span>
-        </div>
-        <div class="modal-progress">
-            <div class="modal-progress-bar">
-                <div class="modal-progress-fill" style="width: ${progress}%"></div>
-            </div>
-        </div>
-        <div class="modal-detail-row">
-            <span class="label">Deadline</span>
-            <span class="value">${formatDate(order.deadline)}</span>
-        </div>
-        <div class="modal-detail-row">
-            <span class="label">Time Left</span>
-            <span class="value" style="color: ${timeLeft.overdue ? 'var(--danger)' : 'var(--success)'}">${timeLeft.text}</span>
-        </div>
-        <div class="modal-detail-row">
-            <span class="label">Payment</span>
-            <span class="value"><span class="badge badge-${order.payment}">${getPaymentLabel(order.payment)}</span></span>
-        </div>
-        <div class="modal-detail-row">
-            <span class="label">Total / Paid</span>
-            <span class="value">Rs. ${order.totalAmount.toLocaleString()} / Rs. ${order.paidAmount.toLocaleString()}</span>
-        </div>
-        <div class="modal-detail-row">
-            <span class="label">Priority</span>
-            <span class="value" style="text-transform: capitalize">${order.priority}</span>
-        </div>
+        <div class="modal-detail-row"><span class="label">Status</span><span class="value">Level ${order.level} - ${LEVELS[order.level].name}</span></div>
+        <div class="modal-progress"><div class="modal-progress-bar"><div class="modal-progress-fill" style="width:${progress}%"></div></div></div>
+        <div class="modal-detail-row"><span class="label">Deadline</span><span class="value">${formatDate(order.deadline)}</span></div>
+        <div class="modal-detail-row"><span class="label">Time Left</span><span class="value" style="color:${timeLeft.overdue ? 'var(--danger)' : 'var(--success)'}">${timeLeft.text}</span></div>
+        <div class="modal-detail-row"><span class="label">Payment</span><span class="value"><span class="badge badge-${order.payment}">${getPaymentLabel(order.payment)}</span></span></div>
+        <div class="modal-detail-row"><span class="label">Total / Paid</span><span class="value">Rs. ${order.totalAmount.toLocaleString()} / Rs. ${order.paidAmount.toLocaleString()}</span></div>
+        ${order.customerBlobId ? `<div class="modal-detail-row"><span class="label">Customer Link</span><span class="value" style="color:var(--success)"><i class="fas fa-check-circle"></i> Active & Live</span></div>` : ''}
         ${order.notes ? `<div class="modal-detail-row"><span class="label">Notes</span><span class="value">${order.notes}</span></div>` : ''}
     `;
 
-    // Button actions
-    document.getElementById('modal-share-btn').onclick = () => copyCustomerLink(order.id);
+    document.getElementById('modal-share-btn').onclick = () => handleShareLink(order);
     document.getElementById('modal-edit-btn').onclick = () => editOrder(order.id);
     document.getElementById('modal-delete-btn').onclick = () => deleteOrder(order.id);
-
     document.getElementById('order-modal').classList.add('active');
 }
 
@@ -327,142 +338,97 @@ function closeModal() {
     document.getElementById('order-modal').classList.remove('active');
 }
 
-// Close modal on backdrop click
 document.getElementById('order-modal').addEventListener('click', (e) => {
     if (e.target.id === 'order-modal') closeModal();
 });
 
 // === Customer Link ===
-// Generate customer link using URL hash (# fragment)
-// Hash is NOT sent to server, stays intact in WhatsApp/SMS, works everywhere
-function generateCustomerLink(orderId) {
-    const orders = DB.getOrders();
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return null;
+async function handleShareLink(order) {
+    showToast('Generating link...');
 
     const settings = DB.getSettings();
+    const result = await CloudDB.saveOrderForCustomer(order, settings);
 
-    // Minimal payload - only what customer needs to see
-    const payload = {
-        order: {
-            customerName: order.customerName,
-            title: order.title,
-            description: order.description || '',
-            notes: order.notes || '',
-            level: order.level,
-            deadline: order.deadline,
-            payment: order.payment,
-            totalAmount: order.totalAmount,
-            paidAmount: order.paidAmount,
-            updatedAt: order.updatedAt || order.createdAt
-        },
-        settings: {
-            businessName: settings.businessName || '',
-            businessPhone: settings.businessPhone || '',
-            businessMessage: settings.businessMessage || ''
+    if (result.success) {
+        // Save blob ID
+        const orders = DB.getOrders();
+        const idx = orders.findIndex(o => o.id === order.id);
+        if (idx >= 0) {
+            orders[idx].customerBlobId = result.blobId;
+            DB.saveOrders(orders);
+            syncToCloud();
         }
-    };
+        order.customerBlobId = result.blobId;
+        showCustomerLinkPopup(order, result.blobId);
+    } else {
+        showToast('Failed to generate link. Check internet.');
+    }
+}
 
-    // Use hash fragment (#) - WhatsApp/SMS don't truncate this
-    const jsonStr = JSON.stringify(payload);
-    const encoded = encodeURIComponent(jsonStr);
+function showCustomerLinkPopup(order, blobId) {
     const baseUrl = window.location.href.split('/').slice(0, -1).join('/') + '/';
-    return `${baseUrl}customer.html#${encoded}`;
-}
+    const link = `${baseUrl}customer.html?id=${blobId}`;
 
-function copyCustomerLink(orderId) {
-    const link = generateCustomerLink(orderId);
-    if (!link) return showToast('Order not found');
-
-    navigator.clipboard.writeText(link).then(() => {
-        showToast('Customer link copied! Works on any device! ✓');
-    }).catch(() => {
-        showShareModal(link);
-    });
-}
-
-function showShareModal(link) {
-    const textarea = document.createElement('textarea');
-    textarea.value = link;
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-    showToast('Customer link copied! Works on any device! ✓');
-}
-
-// Show popup with customer link after order save/update
-function showCustomerLinkPopup(orderId) {
-    const orders = DB.getOrders();
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-
-    const link = generateCustomerLink(orderId);
-    if (!link) return;
-
-    // Remove existing popup if any
+    // Remove existing popup
     const existing = document.querySelector('.link-popup-overlay');
     if (existing) existing.remove();
 
-    // Create popup
     const popup = document.createElement('div');
     popup.className = 'link-popup-overlay';
+    popup.dataset.link = link;
+    popup.dataset.customerName = order.customerName;
     popup.innerHTML = `
         <div class="link-popup">
             <div class="link-popup-header">
                 <h3><i class="fas fa-share-alt"></i> Customer Link Ready!</h3>
                 <button class="modal-close" onclick="this.closest('.link-popup-overlay').remove()">&times;</button>
             </div>
-            <p>Share this link with <strong>${order.customerName}</strong> to show order status:</p>
+            <p>Share this link with <strong>${order.customerName}</strong>:</p>
             <div class="link-box">
-                <textarea id="popup-link-input" readonly rows="3" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.75rem;resize:none;background:#f8fafc;">${link}</textarea>
+                <input type="text" id="popup-link-input" value="${link}" readonly onclick="this.select()">
+            </div>
+            <div class="link-features">
+                <div><i class="fas fa-check" style="color:#16a34a"></i> Short & clean link</div>
+                <div><i class="fas fa-check" style="color:#16a34a"></i> Works on any phone/device</div>
+                <div><i class="fas fa-check" style="color:#16a34a"></i> Auto-updates when you edit order</div>
             </div>
             <div class="link-popup-actions">
                 <button class="btn btn-primary" onclick="copyPopupLink()">
-                    <i class="fas fa-copy"></i> Copy Link
+                    <i class="fas fa-copy"></i> Copy
                 </button>
-                <button class="btn btn-secondary" style="background:#25d366;color:#fff;border:none;" onclick="shareViaWhatsApp()">
+                <button class="btn btn-whatsapp" onclick="shareViaWhatsApp()">
                     <i class="fab fa-whatsapp"></i> WhatsApp
                 </button>
                 <button class="btn btn-secondary" onclick="this.closest('.link-popup-overlay').remove()">
-                    <i class="fas fa-times"></i> Close
+                    Close
                 </button>
             </div>
-            <p class="link-popup-note">This link works on any device/phone!</p>
+            <p class="link-popup-note">Same link always shows latest update!</p>
         </div>
     `;
     document.body.appendChild(popup);
-
-    // Store link for share functions
-    popup.dataset.link = link;
-    popup.dataset.customerName = order.customerName;
 }
 
 function copyPopupLink() {
     const popup = document.querySelector('.link-popup-overlay');
-    const link = popup ? popup.dataset.link : document.getElementById('popup-link-input').value;
-
+    const link = popup ? popup.dataset.link : '';
     navigator.clipboard.writeText(link).then(() => {
-        showToast('Link copied! Share it with the customer ✓');
+        showToast('Link copied! ✓');
     }).catch(() => {
         const input = document.getElementById('popup-link-input');
         input.select();
         document.execCommand('copy');
-        showToast('Link copied! Share it with the customer ✓');
+        showToast('Link copied! ✓');
     });
 }
 
 function shareViaWhatsApp() {
     const popup = document.querySelector('.link-popup-overlay');
     if (!popup) return;
-
     const link = popup.dataset.link;
-    const customerName = popup.dataset.customerName;
-    const message = `Hi ${customerName}, here's your order status update:\n${link}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    const name = popup.dataset.customerName;
+    const msg = `Hi ${name}, check your order status here:\n${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // === Tasks ===
@@ -470,30 +436,22 @@ function refreshTasks() {
     const tasks = DB.getTasks();
     const today = new Date().toISOString().split('T')[0];
 
-    // Populate order select
     const orders = DB.getOrders();
     const orderSelect = document.getElementById('task-order');
     orderSelect.innerHTML = '<option value="">-- None --</option>' +
         orders.map(o => `<option value="${o.id}">${o.title} (${o.customerName})</option>`).join('');
 
-    // Today's tasks
     const todayTasks = tasks.filter(t => t.dueDate === today && !t.completed);
     document.getElementById('tasks-today').innerHTML = todayTasks.length ?
-        todayTasks.map(renderTask).join('') :
-        '<div class="empty-state"><p>No tasks for today</p></div>';
+        todayTasks.map(renderTask).join('') : '<div class="empty-state"><p>No tasks for today</p></div>';
 
-    // Upcoming
-    const upcoming = tasks.filter(t => t.dueDate > today && !t.completed)
-        .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const upcoming = tasks.filter(t => t.dueDate > today && !t.completed).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
     document.getElementById('tasks-upcoming').innerHTML = upcoming.length ?
-        upcoming.map(renderTask).join('') :
-        '<div class="empty-state"><p>No upcoming tasks</p></div>';
+        upcoming.map(renderTask).join('') : '<div class="empty-state"><p>No upcoming tasks</p></div>';
 
-    // Completed
     const completed = tasks.filter(t => t.completed).slice(0, 10);
     document.getElementById('tasks-completed').innerHTML = completed.length ?
-        completed.map(renderTask).join('') :
-        '<div class="empty-state"><p>No completed tasks</p></div>';
+        completed.map(renderTask).join('') : '<div class="empty-state"><p>No completed tasks</p></div>';
 }
 
 function renderTask(task) {
@@ -502,34 +460,26 @@ function renderTask(task) {
             <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask('${task.id}')">
             <div class="task-info">
                 <div class="task-title">${task.title}</div>
-                <div class="task-meta">
-                    ${task.dueDate ? formatDate(task.dueDate) : 'No due date'}
-                    ${task.relatedOrder ? ' | ' + getOrderTitle(task.relatedOrder) : ''}
-                    | <span style="text-transform:capitalize">${task.priority}</span>
-                </div>
+                <div class="task-meta">${task.dueDate ? formatDate(task.dueDate) : ''} ${task.relatedOrder ? '| ' + getOrderTitle(task.relatedOrder) : ''}</div>
             </div>
             <button class="task-delete" onclick="deleteTask('${task.id}')"><i class="fas fa-trash"></i></button>
         </div>
     `;
 }
 
-function showAddTask() {
-    document.getElementById('task-form-container').style.display = 'block';
-}
-
+function showAddTask() { document.getElementById('task-form-container').style.display = 'block'; }
 function hideAddTask() {
     document.getElementById('task-form-container').style.display = 'none';
     document.getElementById('task-title').value = '';
-    document.getElementById('task-due').value = '';
 }
 
-function saveTask() {
+async function saveTask() {
     const title = document.getElementById('task-title').value;
-    if (!title) return showToast('Task title is required');
+    if (!title) return showToast('Task title required');
 
     const task = {
         id: generateId(),
-        title: title,
+        title,
         relatedOrder: document.getElementById('task-order').value || null,
         dueDate: document.getElementById('task-due').value || new Date().toISOString().split('T')[0],
         priority: document.getElementById('task-priority').value,
@@ -540,27 +490,28 @@ function saveTask() {
     const tasks = DB.getTasks();
     tasks.push(task);
     DB.saveTasks(tasks);
-
     hideAddTask();
     refreshTasks();
     showToast('Task added!');
+    await syncToCloud();
 }
 
-function toggleTask(taskId) {
+async function toggleTask(taskId) {
     const tasks = DB.getTasks();
     const task = tasks.find(t => t.id === taskId);
     if (task) {
         task.completed = !task.completed;
         DB.saveTasks(tasks);
         refreshTasks();
+        syncToCloud();
     }
 }
 
-function deleteTask(taskId) {
-    const tasks = DB.getTasks().filter(t => t.id !== taskId);
-    DB.saveTasks(tasks);
+async function deleteTask(taskId) {
+    DB.saveTasks(DB.getTasks().filter(t => t.id !== taskId));
     refreshTasks();
     showToast('Task deleted');
+    await syncToCloud();
 }
 
 // === Settings ===
@@ -571,7 +522,7 @@ function loadSettings() {
     document.getElementById('business-message').value = settings.businessMessage || '';
 }
 
-function saveSettings() {
+async function saveSettings() {
     const settings = {
         businessName: document.getElementById('business-name').value,
         businessPhone: document.getElementById('business-phone').value,
@@ -579,83 +530,71 @@ function saveSettings() {
     };
     DB.saveSettings(settings);
     showToast('Settings saved!');
+    await syncToCloud();
 }
 
 // === Data Export/Import ===
 function exportData() {
-    const data = {
-        orders: DB.getOrders(),
-        tasks: DB.getTasks(),
-        settings: DB.getSettings(),
-        exportDate: new Date().toISOString()
-    };
-
+    const data = { orders: DB.getOrders(), tasks: DB.getTasks(), settings: DB.getSettings(), exportDate: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `customer-update-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
-    URL.revokeObjectURL(url);
     showToast('Data exported!');
 }
 
-function importData(event) {
+async function importData(event) {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const data = JSON.parse(e.target.result);
             if (data.orders) DB.saveOrders(data.orders);
             if (data.tasks) DB.saveTasks(data.tasks);
             if (data.settings) DB.saveSettings(data.settings);
-            showToast('Data imported successfully!');
+            showToast('Data imported!');
             refreshDashboard();
-        } catch (err) {
-            showToast('Error importing data. Invalid file.');
-        }
+            await syncToCloud();
+        } catch (err) { showToast('Invalid file'); }
     };
     reader.readAsText(file);
     event.target.value = '';
 }
 
 // === Utilities ===
-function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 
 function formatDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function showToast(message) {
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
-
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = message;
     document.body.appendChild(toast);
-
     setTimeout(() => toast.remove(), 3000);
 }
 
-// === Initialize ===
-document.addEventListener('DOMContentLoaded', () => {
-    // Set default date
-    document.getElementById('order-start').value = new Date().toISOString().split('T')[0];
-    refreshDashboard();
-});
-
 // === Logout ===
 function logout() {
-    if (confirm('Are you sure you want to logout?')) {
+    if (confirm('Logout?')) {
         localStorage.removeItem('cu_session');
         sessionStorage.removeItem('cu_session');
         window.location.href = 'login.html';
     }
 }
+
+// === Initialize ===
+document.addEventListener('DOMContentLoaded', async () => {
+    document.getElementById('order-start').value = new Date().toISOString().split('T')[0];
+    refreshDashboard();
+
+    // Sync from cloud on load
+    await syncFromCloud();
+});
