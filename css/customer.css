@@ -1,0 +1,356 @@
+/* === Customer View Styles === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #2563eb;
+    --primary-light: #dbeafe;
+    --success: #16a34a;
+    --success-light: #d1fae5;
+    --warning: #f59e0b;
+    --warning-light: #fef3c7;
+    --danger: #dc2626;
+    --danger-light: #fee2e2;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --radius: 16px;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+.customer-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* === Loading === */
+.loader {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.status-card {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+/* === Error === */
+.error-icon {
+    font-size: 3rem;
+    color: var(--danger);
+    margin-bottom: 16px;
+}
+
+/* === Header === */
+.status-header {
+    text-align: center;
+    padding: 24px 20px;
+    background: var(--primary);
+    color: #fff;
+    border-radius: var(--radius);
+    margin-bottom: 16px;
+}
+
+.status-header h1 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+}
+
+.status-header p {
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
+
+/* === Cards === */
+.greeting-card,
+.info-card,
+.progress-card,
+.time-card,
+.payment-card,
+.footer-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.greeting-card {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    border: 1px solid #bfdbfe;
+}
+
+.greeting-card h2 {
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+}
+
+.info-card h3 {
+    font-size: 1.1rem;
+    color: var(--primary);
+    margin-bottom: 8px;
+}
+
+.order-desc {
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.order-notes {
+    margin-top: 12px;
+    padding: 12px;
+    background: #fef3c7;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    border-left: 3px solid var(--warning);
+}
+
+/* === Progress === */
+.progress-card h3 {
+    margin-bottom: 16px;
+}
+
+.progress-bar-container {
+    height: 12px;
+    background: var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #7c3aed);
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 20px;
+}
+
+.level-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.level-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: var(--bg);
+    transition: all 0.2s;
+}
+
+.level-step.completed {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.level-step.current {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
+    border: 2px solid var(--primary);
+}
+
+.level-step.pending {
+    opacity: 0.5;
+}
+
+.level-step .step-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.level-step.completed .step-icon {
+    background: var(--success);
+    color: #fff;
+}
+
+.level-step.current .step-icon {
+    background: var(--primary);
+    color: #fff;
+}
+
+.level-step.pending .step-icon {
+    background: var(--border);
+    color: var(--text-light);
+}
+
+/* === Time === */
+.time-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.time-item {
+    padding: 16px 8px;
+    background: var(--bg);
+    border-radius: 12px;
+}
+
+.time-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.time-label {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+.time-message {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.time-message.on-time {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.time-message.warning {
+    background: var(--warning-light);
+    color: #92400e;
+}
+
+.time-message.overdue {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.time-message.completed {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+/* === Payment === */
+.payment-status {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.payment-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.payment-badge.paid {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.payment-badge.advance {
+    background: var(--warning-light);
+    color: #92400e;
+}
+
+.payment-badge.unpaid {
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.payment-details {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.payment-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 0.9rem;
+}
+
+.payment-row.balance {
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+    padding-top: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+/* === Footer === */
+.footer-card {
+    text-align: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+}
+
+.footer-card p {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.footer-note {
+    margin-top: 8px;
+    font-size: 0.8rem !important;
+    opacity: 0.7;
+}
+
+/* === Responsive === */
+@media (max-width: 480px) {
+    .customer-container {
+        padding: 12px;
+    }
+
+    .time-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+    }
+
+    .time-value {
+        font-size: 1.2rem;
+    }
+
+    .status-header h1 {
+        font-size: 1.2rem;
+    }
+}

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Update System - Admin Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-bell"></i> Customer Update</h2>
+                <p class="subtitle">Order Management System</p>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </li>
+                <li class="nav-item" data-page="orders">
+                    <i class="fas fa-box"></i> Orders
+                </li>
+                <li class="nav-item" data-page="add-order">
+                    <i class="fas fa-plus-circle"></i> New Order
+                </li>
+                <li class="nav-item" data-page="tasks">
+                    <i class="fas fa-tasks"></i> My Tasks
+                </li>
+                <li class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i> Settings
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Page -->
+            <section id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                    <p>Overview of your orders and tasks</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #e3f2fd;"><i class="fas fa-box" style="color: #1976d2;"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-total">0</h3>
+                            <p>Total Orders</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fff3e0;"><i class="fas fa-spinner" style="color: #f57c00;"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-progress">0</h3>
+                            <p>In Progress</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #e8f5e9;"><i class="fas fa-check-circle" style="color: #388e3c;"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-completed">0</h3>
+                            <p>Completed</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fce4ec;"><i class="fas fa-exclamation-triangle" style="color: #d32f2f;"></i></div>
+                        <div class="stat-info">
+                            <h3 id="stat-overdue">0</h3>
+                            <p>Overdue</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <h3><i class="fas fa-clock"></i> Recent Orders</h3>
+                        <div id="recent-orders"></div>
+                    </div>
+                    <div class="card">
+                        <h3><i class="fas fa-tasks"></i> Today's Tasks</h3>
+                        <div id="today-tasks"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Orders Page -->
+            <section id="page-orders" class="page">
+                <div class="page-header">
+                    <h1>All Orders</h1>
+                    <button class="btn btn-primary" onclick="showPage('add-order')"><i class="fas fa-plus"></i> New Order</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="search-orders" placeholder="Search orders..." class="input-field">
+                    <select id="filter-status" class="input-field">
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="delivered">Delivered</option>
+                    </select>
+                    <select id="filter-payment" class="input-field">
+                        <option value="all">All Payments</option>
+                        <option value="paid">Paid</option>
+                        <option value="advance">Advance Paid</option>
+                        <option value="unpaid">Unpaid</option>
+                    </select>
+                </div>
+                <div id="orders-list" class="orders-grid"></div>
+            </section>
+
+            <!-- Add Order Page -->
+            <section id="page-add-order" class="page">
+                <div class="page-header">
+                    <h1 id="form-title">Create New Order</h1>
+                </div>
+                <form id="order-form" class="form-container">
+                    <input type="hidden" id="order-id">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Customer Name *</label>
+                            <input type="text" id="customer-name" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Phone</label>
+                            <input type="tel" id="customer-phone" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Email</label>
+                            <input type="email" id="customer-email" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Order Title *</label>
+                            <input type="text" id="order-title" class="input-field" required>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Order Description</label>
+                            <textarea id="order-description" class="input-field" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Start Date *</label>
+                            <input type="date" id="order-start" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Deadline *</label>
+                            <input type="date" id="order-deadline" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Amount (Rs.)</label>
+                            <input type="number" id="order-amount" class="input-field" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Amount Paid (Rs.)</label>
+                            <input type="number" id="order-paid" class="input-field" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Status *</label>
+                            <select id="order-payment" class="input-field" required>
+                                <option value="unpaid">Unpaid</option>
+                                <option value="advance">Advance Paid</option>
+                                <option value="paid">Fully Paid</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Current Level/Stage *</label>
+                            <select id="order-level" class="input-field" required>
+                                <option value="1">Level 1 - Order Received</option>
+                                <option value="2">Level 2 - Design/Planning</option>
+                                <option value="3">Level 3 - In Progress</option>
+                                <option value="4">Level 4 - Review/QC</option>
+                                <option value="5">Level 5 - Completed</option>
+                                <option value="6">Level 6 - Delivered</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select id="order-priority" class="input-field">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Notes (visible to customer)</label>
+                            <textarea id="order-notes" class="input-field" rows="2" placeholder="Any message for the customer..."></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Order</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">Cancel</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Tasks Page -->
+            <section id="page-tasks" class="page">
+                <div class="page-header">
+                    <h1>My Tasks / Work Plan</h1>
+                    <button class="btn btn-primary" onclick="showAddTask()"><i class="fas fa-plus"></i> Add Task</button>
+                </div>
+                <div id="task-form-container" class="card" style="display:none; margin-bottom: 20px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Task Title *</label>
+                            <input type="text" id="task-title" class="input-field" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Related Order</label>
+                            <select id="task-order" class="input-field">
+                                <option value="">-- None --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Due Date</label>
+                            <input type="date" id="task-due" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select id="task-priority" class="input-field">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveTask()"><i class="fas fa-save"></i> Save Task</button>
+                    <button class="btn btn-secondary" onclick="hideAddTask()">Cancel</button>
+                </div>
+                <div class="tasks-sections">
+                    <div class="card">
+                        <h3><i class="fas fa-fire" style="color:#f57c00;"></i> Today</h3>
+                        <div id="tasks-today"></div>
+                    </div>
+                    <div class="card">
+                        <h3><i class="fas fa-calendar-week" style="color:#1976d2;"></i> Upcoming</h3>
+                        <div id="tasks-upcoming"></div>
+                    </div>
+                    <div class="card">
+                        <h3><i class="fas fa-check" style="color:#388e3c;"></i> Completed</h3>
+                        <div id="tasks-completed"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Page -->
+            <section id="page-settings" class="page">
+                <div class="page-header">
+                    <h1>Settings</h1>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-store"></i> Business Info</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Business Name</label>
+                            <input type="text" id="business-name" class="input-field" placeholder="Your Business Name">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone</label>
+                            <input type="text" id="business-phone" class="input-field" placeholder="Your Phone">
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Custom Message for Customers</label>
+                            <textarea id="business-message" class="input-field" rows="2" placeholder="Thank you for choosing us!"></textarea>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Settings</button>
+                </div>
+                <div class="card">
+                    <h3><i class="fas fa-database"></i> Data Management</h3>
+                    <p>Export or import your data for backup.</p>
+                    <button class="btn btn-secondary" onclick="exportData()"><i class="fas fa-download"></i> Export Data</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()"><i class="fas fa-upload"></i> Import Data</button>
+                    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div id="order-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Order Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="modal-share-btn"><i class="fas fa-share-alt"></i> Copy Customer Link</button>
+                <button class="btn btn-secondary" id="modal-edit-btn"><i class="fas fa-edit"></i> Edit</button>
+                <button class="btn btn-danger" id="modal-delete-btn"><i class="fas fa-trash"></i> Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

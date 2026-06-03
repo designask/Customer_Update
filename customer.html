@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Status - Customer View</title>
+    <link rel="stylesheet" href="css/customer.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="customer-container">
+        <!-- Loading State -->
+        <div id="loading-state" class="status-card">
+            <div class="loader"></div>
+            <p>Loading order status...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="status-card" style="display:none;">
+            <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
+            <h2>Order Not Found</h2>
+            <p>This link may be invalid or the order has been removed.</p>
+        </div>
+
+        <!-- Order Status -->
+        <div id="order-status" style="display:none;">
+            <!-- Header -->
+            <div class="status-header">
+                <div class="business-info">
+                    <h1 id="c-business-name">Business Name</h1>
+                    <p id="c-business-message"></p>
+                </div>
+            </div>
+
+            <!-- Customer Greeting -->
+            <div class="greeting-card">
+                <h2>Hello, <span id="c-customer-name"></span>! 👋</h2>
+                <p>Here's the latest update on your order.</p>
+            </div>
+
+            <!-- Order Info -->
+            <div class="info-card">
+                <h3 id="c-order-title"></h3>
+                <p id="c-order-desc" class="order-desc"></p>
+                <div id="c-order-notes" class="order-notes" style="display:none;"></div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="progress-card">
+                <h3><i class="fas fa-layer-group"></i> Order Progress</h3>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="c-progress-bar"></div>
+                </div>
+                <p class="progress-text" id="c-progress-text"></p>
+                
+                <!-- Level Steps -->
+                <div class="level-steps" id="c-level-steps"></div>
+            </div>
+
+            <!-- Time Remaining -->
+            <div class="time-card">
+                <h3><i class="fas fa-clock"></i> Time Information</h3>
+                <div class="time-grid">
+                    <div class="time-item">
+                        <div class="time-value" id="c-days-remaining">-</div>
+                        <div class="time-label">Days Remaining</div>
+                    </div>
+                    <div class="time-item">
+                        <div class="time-value" id="c-hours-remaining">-</div>
+                        <div class="time-label">Hours Remaining</div>
+                    </div>
+                    <div class="time-item">
+                        <div class="time-value" id="c-deadline">-</div>
+                        <div class="time-label">Deadline</div>
+                    </div>
+                </div>
+                <div id="c-time-message" class="time-message"></div>
+            </div>
+
+            <!-- Payment Section -->
+            <div class="payment-card">
+                <h3><i class="fas fa-credit-card"></i> Payment Information</h3>
+                <div class="payment-status" id="c-payment-badge"></div>
+                <div class="payment-details">
+                    <div class="payment-row">
+                        <span>Total Amount:</span>
+                        <span id="c-total-amount">-</span>
+                    </div>
+                    <div class="payment-row">
+                        <span>Amount Paid:</span>
+                        <span id="c-paid-amount">-</span>
+                    </div>
+                    <div class="payment-row balance">
+                        <span>Balance Due:</span>
+                        <span id="c-balance">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer-card">
+                <p id="c-contact-info"></p>
+                <p class="footer-note">Last updated: <span id="c-last-updated"></span></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/customer.js"></script>
+</body>
+</html>
