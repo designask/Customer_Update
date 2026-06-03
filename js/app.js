@@ -330,16 +330,58 @@ document.getElementById('order-modal').addEventListener('click', (e) => {
 });
 
 // === Customer Link ===
+// Encode order data into URL so it works on ANY device/browser
 function copyCustomerLink(orderId) {
+    const orders = DB.getOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return showToast('Order not found');
+
+    const settings = DB.getSettings();
+
+    // Create data payload with only customer-visible info
+    const payload = {
+        order: {
+            customerName: order.customerName,
+            title: order.title,
+            description: order.description,
+            notes: order.notes,
+            level: order.level,
+            deadline: order.deadline,
+            payment: order.payment,
+            totalAmount: order.totalAmount,
+            paidAmount: order.paidAmount,
+            updatedAt: order.updatedAt || order.createdAt
+        },
+        settings: {
+            businessName: settings.businessName || '',
+            businessPhone: settings.businessPhone || '',
+            businessMessage: settings.businessMessage || ''
+        }
+    };
+
+    // Encode to base64
+    const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
     const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-    const link = `${baseUrl}customer.html?id=${orderId}`;
+    const link = `${baseUrl}customer.html?data=${encoded}`;
 
     navigator.clipboard.writeText(link).then(() => {
-        showToast('Customer link copied to clipboard!');
+        showToast('Customer link copied! Works on any device! ✓');
     }).catch(() => {
-        // Fallback
-        prompt('Copy this link:', link);
+        // Fallback for older browsers
+        showShareModal(link);
     });
+}
+
+function showShareModal(link) {
+    const textarea = document.createElement('textarea');
+    textarea.value = link;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    showToast('Customer link copied! Works on any device! ✓');
 }
 
 // === Tasks ===

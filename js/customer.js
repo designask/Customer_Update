@@ -1,4 +1,6 @@
 // === Customer View - Order Status Page ===
+// Data is embedded in the URL itself (base64 encoded)
+// So it works from ANY device/browser!
 
 // Level definitions
 const LEVELS = {
@@ -10,40 +12,32 @@ const LEVELS = {
     6: { name: 'Delivered', icon: 'fas fa-truck' }
 };
 
-// Get order ID from URL
-function getOrderId() {
+// Decode order data from URL
+function getOrderFromURL() {
     const params = new URLSearchParams(window.location.search);
-    return params.get('id');
-}
+    const data = params.get('data');
 
-// Get data from localStorage
-function getOrders() {
-    return JSON.parse(localStorage.getItem('cu_orders') || '[]');
-}
+    if (!data) return null;
 
-function getSettings() {
-    return JSON.parse(localStorage.getItem('cu_settings') || '{}');
+    try {
+        const jsonStr = decodeURIComponent(atob(data));
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.error('Failed to decode order data:', e);
+        return null;
+    }
 }
 
 // Initialize
 function init() {
-    const orderId = getOrderId();
+    const orderData = getOrderFromURL();
 
-    if (!orderId) {
+    if (!orderData || !orderData.order) {
         showError();
         return;
     }
 
-    const orders = getOrders();
-    const order = orders.find(o => o.id === orderId);
-
-    if (!order) {
-        showError();
-        return;
-    }
-
-    const settings = getSettings();
-    renderOrderStatus(order, settings);
+    renderOrderStatus(orderData.order, orderData.settings || {});
 }
 
 function showError() {
@@ -61,21 +55,22 @@ function renderOrderStatus(order, settings) {
     document.getElementById('c-business-message').textContent = settings.businessMessage || '';
 
     // Customer greeting
-    document.getElementById('c-customer-name').textContent = order.customerName;
+    document.getElementById('c-customer-name').textContent = order.customerName || 'Customer';
 
     // Order info
-    document.getElementById('c-order-title').textContent = order.title;
+    document.getElementById('c-order-title').textContent = order.title || 'Your Order';
     document.getElementById('c-order-desc').textContent = order.description || '';
 
     if (order.notes) {
         document.getElementById('c-order-notes').style.display = 'block';
-        document.getElementById('c-order-notes').innerHTML = `<strong>Message:</strong> ${order.notes}`;
+        document.getElementById('c-order-notes').innerHTML = `<strong>Message:</strong> ${escapeHtml(order.notes)}`;
     }
 
     // Progress
-    const progress = Math.round((order.level / 6) * 100);
+    const level = parseInt(order.level) || 1;
+    const progress = Math.round((level / 6) * 100);
     document.getElementById('c-progress-bar').style.width = `${progress}%`;
-    document.getElementById('c-progress-text').textContent = `${progress}% Complete - Level ${order.level}`;
+    document.getElementById('c-progress-text').textContent = `${progress}% Complete - Level ${level}`;
 
     // Level steps
     let stepsHtml = '';
@@ -83,10 +78,10 @@ function renderOrderStatus(order, settings) {
         let stepClass = 'pending';
         let iconHtml = `<span>${i}</span>`;
 
-        if (i < order.level) {
+        if (i < level) {
             stepClass = 'completed';
             iconHtml = '<i class="fas fa-check"></i>';
-        } else if (i === order.level) {
+        } else if (i === level) {
             stepClass = 'current';
             iconHtml = `<i class="${LEVELS[i].icon}"></i>`;
         }
@@ -101,38 +96,40 @@ function renderOrderStatus(order, settings) {
     document.getElementById('c-level-steps').innerHTML = stepsHtml;
 
     // Time remaining
-    const deadline = new Date(order.deadline);
-    const now = new Date();
-    const diff = deadline - now;
+    if (order.deadline) {
+        const deadline = new Date(order.deadline);
+        const now = new Date();
+        const diff = deadline - now;
 
-    document.getElementById('c-deadline').textContent = formatDate(order.deadline);
+        document.getElementById('c-deadline').textContent = formatDate(order.deadline);
 
-    if (order.level >= 5) {
-        document.getElementById('c-days-remaining').textContent = '-';
-        document.getElementById('c-hours-remaining').textContent = '-';
-        const msgEl = document.getElementById('c-time-message');
-        msgEl.textContent = order.level === 6 ? 'Your order has been delivered!' : 'Your order is completed!';
-        msgEl.className = 'time-message completed';
-    } else if (diff < 0) {
-        const overdueDays = Math.abs(Math.floor(diff / (1000 * 60 * 60 * 24)));
-        document.getElementById('c-days-remaining').textContent = `-${overdueDays}`;
-        document.getElementById('c-hours-remaining').textContent = '0';
-        const msgEl = document.getElementById('c-time-message');
-        msgEl.textContent = 'We apologize for the delay. Your order is being prioritized.';
-        msgEl.className = 'time-message overdue';
-    } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        document.getElementById('c-days-remaining').textContent = days;
-        document.getElementById('c-hours-remaining').textContent = hours;
-
-        const msgEl = document.getElementById('c-time-message');
-        if (days <= 1) {
-            msgEl.textContent = 'Almost there! Your order will be ready very soon.';
-            msgEl.className = 'time-message warning';
+        if (level >= 5) {
+            document.getElementById('c-days-remaining').textContent = '-';
+            document.getElementById('c-hours-remaining').textContent = '-';
+            const msgEl = document.getElementById('c-time-message');
+            msgEl.textContent = level === 6 ? 'Your order has been delivered!' : 'Your order is completed!';
+            msgEl.className = 'time-message completed';
+        } else if (diff < 0) {
+            const overdueDays = Math.abs(Math.floor(diff / (1000 * 60 * 60 * 24)));
+            document.getElementById('c-days-remaining').textContent = `-${overdueDays}`;
+            document.getElementById('c-hours-remaining').textContent = '0';
+            const msgEl = document.getElementById('c-time-message');
+            msgEl.textContent = 'We apologize for the delay. Your order is being prioritized.';
+            msgEl.className = 'time-message overdue';
         } else {
-            msgEl.textContent = 'Your order is on track and progressing well.';
-            msgEl.className = 'time-message on-time';
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            document.getElementById('c-days-remaining').textContent = days;
+            document.getElementById('c-hours-remaining').textContent = hours;
+
+            const msgEl = document.getElementById('c-time-message');
+            if (days <= 1) {
+                msgEl.textContent = 'Almost there! Your order will be ready very soon.';
+                msgEl.className = 'time-message warning';
+            } else {
+                msgEl.textContent = 'Your order is on track and progressing well.';
+                msgEl.className = 'time-message on-time';
+            }
         }
     }
 
@@ -157,7 +154,7 @@ function renderOrderStatus(order, settings) {
     const contactParts = [];
     if (settings.businessPhone) contactParts.push(`Phone: ${settings.businessPhone}`);
     document.getElementById('c-contact-info').textContent = contactParts.join(' | ') || '';
-    document.getElementById('c-last-updated').textContent = formatDateTime(order.updatedAt || order.createdAt);
+    document.getElementById('c-last-updated').textContent = formatDateTime(order.updatedAt || new Date().toISOString());
 }
 
 function formatDate(dateStr) {
@@ -170,6 +167,12 @@ function formatDateTime(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 // Start
