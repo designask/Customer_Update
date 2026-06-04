@@ -173,7 +173,7 @@ document.getElementById('filter-status').addEventListener('change', refreshOrder
 document.getElementById('filter-payment').addEventListener('change', refreshOrders);
 
 // === Order Form ===
-document.getElementById('order-form').addEventListener('submit', async (e) => {
+document.getElementById('order-form').addEventListener('submit', (e) => {
     e.preventDefault();
 
     const orderId = document.getElementById('order-id').value;
@@ -208,28 +208,14 @@ document.getElementById('order-form').addEventListener('submit', async (e) => {
     }
 
     DB.saveOrders(orders);
-    showToast('Order saved! Syncing...');
+    showToast('Order saved!');
     resetForm();
     showPage('orders');
 
-    // Sync to cloud in background
-    await syncToCloud();
-
-    // Save/update customer blob and show link
+    // Generate customer link and show popup
     const settings = DB.getSettings();
-    const result = await CloudDB.saveOrderForCustomer(order, settings);
-    if (result.success) {
-        // Update order with blob ID
-        order.customerBlobId = result.blobId;
-        const updatedOrders = DB.getOrders();
-        const idx = updatedOrders.findIndex(o => o.id === order.id);
-        if (idx >= 0) {
-            updatedOrders[idx].customerBlobId = result.blobId;
-            DB.saveOrders(updatedOrders);
-            await syncToCloud();
-        }
-        showCustomerLinkPopup(order, result.blobId);
-    }
+    const link = CloudDB.generateCustomerLink(order, settings);
+    showCustomerLinkPopup(order, link);
 });
 
 function resetForm() {
@@ -292,7 +278,6 @@ function viewOrder(orderId) {
         <div class="modal-detail-row"><span class="label">Time Left</span><span class="value" style="color:${timeLeft.overdue ? 'var(--danger)' : 'var(--success)'}">${timeLeft.text}</span></div>
         <div class="modal-detail-row"><span class="label">Payment</span><span class="value"><span class="badge badge-${order.payment}">${getPaymentLabel(order.payment)}</span></span></div>
         <div class="modal-detail-row"><span class="label">Total / Paid</span><span class="value">Rs. ${order.totalAmount.toLocaleString()} / Rs. ${order.paidAmount.toLocaleString()}</span></div>
-        ${order.customerBlobId ? `<div class="modal-detail-row"><span class="label">Customer Link</span><span class="value" style="color:var(--success)"><i class="fas fa-check-circle"></i> Active & Live</span></div>` : ''}
         ${order.notes ? `<div class="modal-detail-row"><span class="label">Notes</span><span class="value">${order.notes}</span></div>` : ''}
     `;
 
@@ -312,31 +297,12 @@ document.getElementById('order-modal').addEventListener('click', (e) => {
 
 // === Customer Link ===
 async function handleShareLink(order) {
-    showToast('Generating link...');
-
     const settings = DB.getSettings();
-    const result = await CloudDB.saveOrderForCustomer(order, settings);
-
-    if (result.success) {
-        // Save blob ID
-        const orders = DB.getOrders();
-        const idx = orders.findIndex(o => o.id === order.id);
-        if (idx >= 0) {
-            orders[idx].customerBlobId = result.blobId;
-            DB.saveOrders(orders);
-            syncToCloud();
-        }
-        order.customerBlobId = result.blobId;
-        showCustomerLinkPopup(order, result.blobId);
-    } else {
-        showToast('Failed to generate link. Check internet.');
-    }
+    const link = CloudDB.generateCustomerLink(order, settings);
+    showCustomerLinkPopup(order, link);
 }
 
-function showCustomerLinkPopup(order, blobId) {
-    const baseUrl = window.location.href.split('/').slice(0, -1).join('/') + '/';
-    const link = `${baseUrl}customer.html?id=${blobId}`;
-
+function showCustomerLinkPopup(order, link) {
     // Remove existing popup
     const existing = document.querySelector('.link-popup-overlay');
     if (existing) existing.remove();
@@ -356,9 +322,9 @@ function showCustomerLinkPopup(order, blobId) {
                 <input type="text" id="popup-link-input" value="${link}" readonly onclick="this.select()">
             </div>
             <div class="link-features">
-                <div><i class="fas fa-check" style="color:#16a34a"></i> Short & clean link</div>
                 <div><i class="fas fa-check" style="color:#16a34a"></i> Works on any phone/device</div>
-                <div><i class="fas fa-check" style="color:#16a34a"></i> Auto-updates when you edit order</div>
+                <div><i class="fas fa-check" style="color:#16a34a"></i> No server needed</div>
+                <div><i class="fas fa-check" style="color:#16a34a"></i> Shows level, time & payment</div>
             </div>
             <div class="link-popup-actions">
                 <button class="btn btn-primary" onclick="copyPopupLink()">
@@ -371,7 +337,6 @@ function showCustomerLinkPopup(order, blobId) {
                     Close
                 </button>
             </div>
-            <p class="link-popup-note">Same link always shows latest update!</p>
         </div>
     `;
     document.body.appendChild(popup);
