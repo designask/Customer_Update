@@ -419,18 +419,20 @@
 
             try {
                 if (!emailjsReady) {
-                    // Try init again
                     emailjs.init(EMAILJS_PUBLIC_KEY);
                 }
 
                 // Send email via EmailJS
+                // Pass both to_email and email to cover all template field name options
                 const templateParams = {
                     to_email: pendingEmail,
-                    passcode: pendingCode
+                    email: pendingEmail,
+                    passcode: pendingCode,
+                    reply_to: pendingEmail,
+                    to_name: 'Admin'
                 };
                 
-                console.log('Sending with params:', templateParams);
-                console.log('Service:', EMAILJS_SERVICE_ID, 'Template:', EMAILJS_TEMPLATE_ID);
+                console.log('Sending to:', pendingEmail, 'Code:', pendingCode);
                 
                 const response = await emailjs.send(
                     EMAILJS_SERVICE_ID, 
@@ -445,11 +447,11 @@
                 showSection('section-verify-code');
                 showMsg(document.getElementById('verify-msg'), 'Code sent! Check your email (and spam folder).', 'success');
             } catch (err) {
-                console.error('EmailJS send error:', JSON.stringify(err));
+                console.error('EmailJS send error:', err);
                 let errorMsg = 'Failed to send email. ';
                 if (err && err.text) errorMsg += err.text;
                 else if (typeof err === 'string') errorMsg += err;
-                else errorMsg += 'Check browser console for details.';
+                else errorMsg += JSON.stringify(err);
                 showMsg(msgEl, errorMsg, 'error');
             }
 
