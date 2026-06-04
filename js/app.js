@@ -585,7 +585,6 @@ function showToast(message) {
 function logout() {
     if (confirm('Logout?')) {
         localStorage.removeItem('cu_session');
-        sessionStorage.removeItem('cu_session');
         window.location.href = 'login.html';
     }
 }

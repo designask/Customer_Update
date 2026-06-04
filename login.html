@@ -20,7 +20,7 @@
 
         .login-container {
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             animation: fadeIn 0.5s ease;
         }
 
@@ -63,7 +63,7 @@
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
             text-align: left;
         }
 
@@ -127,30 +127,20 @@
             box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
         }
 
-        .login-btn:active {
-            transform: translateY(0);
-        }
+        .login-btn:active { transform: translateY(0); }
+        .login-btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
-        .login-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-msg {
-            color: #dc2626;
+        .msg {
             font-size: 0.85rem;
             margin-top: 12px;
-            display: none;
-            padding: 8px 12px;
-            background: #fef2f2;
+            padding: 10px 14px;
             border-radius: 8px;
+            display: none;
         }
 
-        .error-msg.show {
-            display: block;
-            animation: shake 0.3s ease;
-        }
+        .msg.error { display: block; background: #fef2f2; color: #dc2626; animation: shake 0.3s ease; }
+        .msg.success { display: block; background: #f0fdf4; color: #16a34a; }
+        .msg.info { display: block; background: #eff6ff; color: #1d4ed8; }
 
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -158,14 +148,8 @@
             75% { transform: translateX(5px); }
         }
 
-        .setup-section {
-            display: none;
-            text-align: left;
-        }
-
-        .setup-section.show {
-            display: block;
-        }
+        .section { display: none; text-align: left; }
+        .section.show { display: block; }
 
         .divider {
             margin: 20px 0;
@@ -174,11 +158,10 @@
             font-size: 0.8rem;
         }
 
-        .divider::before,
-        .divider::after {
+        .divider::before, .divider::after {
             content: '';
             display: inline-block;
-            width: 60px;
+            width: 50px;
             height: 1px;
             background: #e2e8f0;
             vertical-align: middle;
@@ -197,9 +180,10 @@
             border-radius: 10px;
             padding: 12px;
             margin-bottom: 20px;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             color: #1e40af;
             text-align: left;
+            line-height: 1.5;
         }
 
         .spinner {
@@ -212,9 +196,32 @@
             animation: spin 0.6s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .otp-input {
+            text-align: center;
+            font-size: 1.5rem;
+            letter-spacing: 8px;
+            font-weight: 700;
+            padding: 14px;
         }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e2e8f0;
+        }
+
+        .step-dot.active { background: #2563eb; }
+        .step-dot.done { background: #16a34a; }
     </style>
 </head>
 <body>
@@ -224,157 +231,285 @@
                 <i class="fas fa-bell"></i>
             </div>
             <h1>Customer Update</h1>
-            <p class="subtitle">Sign in to manage your orders</p>
+            <p class="subtitle">Order Management System</p>
 
-            <!-- Login Form -->
-            <div id="login-form">
-                <div class="info-box">
-                    <i class="fas fa-info-circle"></i> 
-                    Same username & PIN works on any device! 
-                    Login from phone, laptop, or tablet.
-                </div>
+            <!-- Section: Login -->
+            <div id="section-login" class="section show">
                 <div class="form-group">
-                    <label>Username</label>
+                    <label>Email Address</label>
                     <div class="input-wrapper">
-                        <i class="fas fa-user"></i>
-                        <input type="text" id="login-username" class="input-field" placeholder="Enter username" autocomplete="username">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="login-email" class="input-field" placeholder="your@email.com" autocomplete="email">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>PIN / Password</label>
+                    <label>Password</label>
                     <div class="input-wrapper">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="login-pin" class="input-field" placeholder="Enter PIN or password" autocomplete="current-password">
+                        <input type="password" id="login-password" class="input-field" placeholder="Enter password" autocomplete="current-password">
                     </div>
                 </div>
-                <button class="login-btn" id="login-btn" onclick="handleLogin()">
+                <button class="login-btn" id="btn-login" onclick="handleLogin()">
                     <i class="fas fa-sign-in-alt"></i> Sign In
                 </button>
-                <div class="error-msg" id="error-msg"></div>
-                <div class="divider">first time?</div>
-                <button class="login-btn" style="background: linear-gradient(135deg, #16a34a, #059669);" onclick="showSetup()">
-                    <i class="fas fa-user-plus"></i> Create New Account
+                <div class="msg" id="login-msg"></div>
+                <div class="divider">don't have an account?</div>
+                <button class="login-btn" style="background: linear-gradient(135deg, #16a34a, #059669);" onclick="showSection('section-register-email')">
+                    <i class="fas fa-user-plus"></i> Create Account
                 </button>
             </div>
 
-            <!-- Setup Form -->
-            <div id="setup-form" class="setup-section">
+            <!-- Section: Register - Step 1: Email -->
+            <div id="section-register-email" class="section">
+                <div class="step-indicator">
+                    <div class="step-dot active"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-dot"></div>
+                </div>
                 <div class="info-box">
-                    <i class="fas fa-info-circle"></i> 
-                    Create your account once. Then use the same username & PIN to login from any device!
+                    <i class="fas fa-shield-alt"></i> 
+                    We'll send a verification code to your email. Only verified emails can create accounts.
                 </div>
                 <div class="form-group">
-                    <label>Choose a Username</label>
+                    <label>Your Email Address</label>
                     <div class="input-wrapper">
-                        <i class="fas fa-user"></i>
-                        <input type="text" id="setup-username" class="input-field" placeholder="Your username (min 3 chars)">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="reg-email" class="input-field" placeholder="your@email.com">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Set a PIN / Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="setup-pin" class="input-field" placeholder="Choose a PIN (min 4 chars)">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Confirm PIN / Password</label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="setup-pin-confirm" class="input-field" placeholder="Confirm your PIN">
-                    </div>
-                </div>
-                <button class="login-btn" id="setup-btn" onclick="handleSetup()">
-                    <i class="fas fa-check"></i> Create Account
+                <button class="login-btn" id="btn-send-code" onclick="sendVerificationCode()">
+                    <i class="fas fa-paper-plane"></i> Send Verification Code
                 </button>
-                <div class="error-msg" id="setup-error"></div>
+                <div class="msg" id="reg-email-msg"></div>
                 <div class="divider">already have an account?</div>
-                <button class="login-btn" style="background: #64748b;" onclick="showLogin()">
+                <button class="login-btn" style="background: #64748b;" onclick="showSection('section-login')">
                     <i class="fas fa-arrow-left"></i> Back to Login
                 </button>
             </div>
 
-            <p class="footer-text">Data syncs across all your devices</p>
+            <!-- Section: Register - Step 2: Verify Code -->
+            <div id="section-verify-code" class="section">
+                <div class="step-indicator">
+                    <div class="step-dot done"></div>
+                    <div class="step-dot active"></div>
+                    <div class="step-dot"></div>
+                </div>
+                <div class="info-box">
+                    <i class="fas fa-envelope-open"></i> 
+                    We sent a 6-digit code to <strong id="verify-email-display"></strong>. Check your inbox (and spam folder).
+                </div>
+                <div class="form-group">
+                    <label>Enter Verification Code</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-key"></i>
+                        <input type="text" id="reg-code" class="input-field otp-input" placeholder="000000" maxlength="6" inputmode="numeric">
+                    </div>
+                </div>
+                <button class="login-btn" id="btn-verify" onclick="verifyCode()">
+                    <i class="fas fa-check-circle"></i> Verify Code
+                </button>
+                <div class="msg" id="verify-msg"></div>
+                <button class="login-btn" style="background: #64748b; margin-top:10px;" onclick="sendVerificationCode()">
+                    <i class="fas fa-redo"></i> Resend Code
+                </button>
+            </div>
+
+            <!-- Section: Register - Step 3: Set Password -->
+            <div id="section-set-password" class="section">
+                <div class="step-indicator">
+                    <div class="step-dot done"></div>
+                    <div class="step-dot done"></div>
+                    <div class="step-dot active"></div>
+                </div>
+                <div class="info-box">
+                    <i class="fas fa-check-circle" style="color:#16a34a"></i> 
+                    Email verified! Now set your password.
+                </div>
+                <div class="form-group">
+                    <label>Choose Password (min 4 characters)</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="reg-password" class="input-field" placeholder="Choose password">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="reg-password-confirm" class="input-field" placeholder="Confirm password">
+                    </div>
+                </div>
+                <button class="login-btn" id="btn-create" onclick="createAccount()">
+                    <i class="fas fa-check"></i> Create Account & Login
+                </button>
+                <div class="msg" id="create-msg"></div>
+            </div>
+
+            <p class="footer-text">Works on any device with same email & password</p>
         </div>
     </div>
 
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="js/storage.js"></script>
     <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        // Owner email - ONLY this email can create an account
+        const OWNER_EMAIL = 'designfoxask@gmail.com';
+        
+        // EmailJS Config - Set these up at https://emailjs.com (free)
+        // 1. Create account at emailjs.com
+        // 2. Add Gmail service (connect your Gmail)  
+        // 3. Create email template with variables: {{passcode}}, {{to_email}}
+        //    Subject: "Your Verification Code: {{passcode}}"
+        //    Body: "Your Customer Update verification code is: {{passcode}}"
+        // 4. Copy Service ID, Template ID, Public Key below:
+        
+        const EMAILJS_PUBLIC_KEY = 'YOUR_PUBLIC_KEY';  // From EmailJS → Account → API Keys
+        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; // From EmailJS → Email Services
+        const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; // From EmailJS → Email Templates
+        
+        // ============================================
+
+        let pendingEmail = '';
+        let pendingCode = '';
+
         // Check if already logged in
         (function() {
             const session = localStorage.getItem('cu_session');
             if (session) {
                 window.location.href = 'index.html';
             }
+            // Init EmailJS
+            if (typeof emailjs !== 'undefined') {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+            }
         })();
 
-        function showSetup() {
-            document.getElementById('login-form').style.display = 'none';
-            document.getElementById('setup-form').classList.add('show');
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('show'));
+            document.getElementById(id).classList.add('show');
         }
 
-        function showLogin() {
-            document.getElementById('login-form').style.display = 'block';
-            document.getElementById('setup-form').classList.remove('show');
-        }
+        // === Step 1: Send verification code ===
+        async function sendVerificationCode() {
+            const email = document.getElementById('reg-email').value.trim().toLowerCase();
+            const msgEl = document.getElementById('reg-email-msg');
+            const btn = document.getElementById('btn-send-code');
 
-        async function handleSetup() {
-            const username = document.getElementById('setup-username').value.trim().toLowerCase();
-            const pin = document.getElementById('setup-pin').value;
-            const pinConfirm = document.getElementById('setup-pin-confirm').value;
-            const errorEl = document.getElementById('setup-error');
-            const btn = document.getElementById('setup-btn');
-
-            if (!username || username.length < 3) {
-                showError(errorEl, 'Username must be at least 3 characters');
+            if (!email || !email.includes('@')) {
+                showMsg(msgEl, 'Please enter a valid email', 'error');
                 return;
             }
-            if (!pin || pin.length < 4) {
-                showError(errorEl, 'PIN must be at least 4 characters');
-                return;
-            }
-            if (pin !== pinConfirm) {
-                showError(errorEl, 'PINs do not match');
+
+            // Only owner email can register
+            if (email !== OWNER_EMAIL) {
+                showMsg(msgEl, 'Access denied. Only the owner can create an account.', 'error');
                 return;
             }
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> Creating...';
+            btn.innerHTML = '<span class="spinner"></span> Sending...';
+
+            // Generate 6-digit code
+            pendingCode = Math.floor(100000 + Math.random() * 900000).toString();
+            pendingEmail = email;
 
             try {
-                // Create account on cloud storage
-                const result = await CloudDB.createAccount(username, pin);
-                
+                // Send email via EmailJS
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+                    to_email: email,
+                    passcode: pendingCode,
+                    message: `Your Customer Update verification code is: ${pendingCode}`
+                });
+
+                // Show verify section
+                document.getElementById('verify-email-display').textContent = email;
+                showSection('section-verify-code');
+                showMsg(document.getElementById('verify-msg'), 'Code sent! Check your email.', 'success');
+            } catch (err) {
+                console.error('EmailJS error:', err);
+                showMsg(msgEl, 'Failed to send email. Please set up EmailJS first (see instructions in code).', 'error');
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Verification Code';
+        }
+
+        // === Step 2: Verify code ===
+        function verifyCode() {
+            const code = document.getElementById('reg-code').value.trim();
+            const msgEl = document.getElementById('verify-msg');
+
+            if (!code) {
+                showMsg(msgEl, 'Please enter the code', 'error');
+                return;
+            }
+
+            if (code !== pendingCode) {
+                showMsg(msgEl, 'Invalid code. Please try again.', 'error');
+                return;
+            }
+
+            // Code verified! Go to password step
+            showSection('section-set-password');
+        }
+
+        // === Step 3: Create account ===
+        async function createAccount() {
+            const password = document.getElementById('reg-password').value;
+            const confirm = document.getElementById('reg-password-confirm').value;
+            const msgEl = document.getElementById('create-msg');
+            const btn = document.getElementById('btn-create');
+
+            if (!password || password.length < 4) {
+                showMsg(msgEl, 'Password must be at least 4 characters', 'error');
+                return;
+            }
+            if (password !== confirm) {
+                showMsg(msgEl, 'Passwords do not match', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Creating account...';
+
+            try {
+                const result = await CloudDB.createAccount(pendingEmail, password);
+
                 if (!result.success) {
-                    showError(errorEl, result.error || 'Failed to create account');
+                    showMsg(msgEl, result.error || 'Failed to create account', 'error');
                     btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-check"></i> Create Account';
+                    btn.innerHTML = '<i class="fas fa-check"></i> Create Account & Login';
                     return;
                 }
 
-                // Save session locally
+                // Login automatically
                 localStorage.setItem('cu_session', JSON.stringify({
-                    username: username,
+                    email: pendingEmail,
                     storageId: result.storageId,
                     loggedInAt: new Date().toISOString()
                 }));
 
                 window.location.href = 'index.html';
             } catch (err) {
-                showError(errorEl, 'Network error. Please try again.');
+                showMsg(msgEl, 'Network error. Try again.', 'error');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-check"></i> Create Account';
+                btn.innerHTML = '<i class="fas fa-check"></i> Create Account & Login';
             }
         }
 
+        // === Login ===
         async function handleLogin() {
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const pin = document.getElementById('login-pin').value;
-            const errorEl = document.getElementById('error-msg');
-            const btn = document.getElementById('login-btn');
+            const email = document.getElementById('login-email').value.trim().toLowerCase();
+            const password = document.getElementById('login-password').value;
+            const msgEl = document.getElementById('login-msg');
+            const btn = document.getElementById('btn-login');
 
-            if (!username || !pin) {
-                showError(errorEl, 'Please enter username and PIN');
+            if (!email || !password) {
+                showMsg(msgEl, 'Please enter email and password', 'error');
                 return;
             }
 
@@ -382,44 +517,43 @@
             btn.innerHTML = '<span class="spinner"></span> Signing in...';
 
             try {
-                const result = await CloudDB.login(username, pin);
+                const result = await CloudDB.login(email, password);
 
                 if (!result.success) {
-                    showError(errorEl, result.error || 'Invalid username or PIN');
+                    showMsg(msgEl, result.error || 'Invalid email or password', 'error');
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
                     return;
                 }
 
-                // Save session locally
                 localStorage.setItem('cu_session', JSON.stringify({
-                    username: username,
+                    email: email,
                     storageId: result.storageId,
                     loggedInAt: new Date().toISOString()
                 }));
 
                 window.location.href = 'index.html';
             } catch (err) {
-                showError(errorEl, 'Network error. Please check your internet.');
+                showMsg(msgEl, 'Network error. Check internet.', 'error');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
             }
         }
 
-        function showError(el, msg) {
-            el.textContent = msg;
-            el.classList.add('show');
-            setTimeout(() => el.classList.remove('show'), 5000);
+        function showMsg(el, text, type) {
+            el.textContent = text;
+            el.className = `msg ${type}`;
+            if (type === 'error') setTimeout(() => el.className = 'msg', 5000);
         }
 
-        // Enter key support
+        // Enter key
         document.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                if (document.getElementById('setup-form').classList.contains('show')) {
-                    handleSetup();
-                } else {
-                    handleLogin();
-                }
+                const active = document.querySelector('.section.show');
+                if (active.id === 'section-login') handleLogin();
+                else if (active.id === 'section-register-email') sendVerificationCode();
+                else if (active.id === 'section-verify-code') verifyCode();
+                else if (active.id === 'section-set-password') createAccount();
             }
         });
     </script>

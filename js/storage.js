@@ -7,13 +7,12 @@ const JSONBLOB_API = 'https://jsonblob.com/api/jsonBlob';
 const CloudDB = {
     // === Account Management ===
 
-    // Create a new account - stores credentials + empty data on cloud
-    async createAccount(username, pin) {
-        const pinHash = this.hashPin(pin);
+    // Create a new account with email
+    async createAccount(email, password) {
+        const passHash = this.hashPassword(password);
 
-        // Create the cloud storage with initial data
         const initialData = {
-            auth: { username, pinHash, createdAt: new Date().toISOString() },
+            auth: { email, passHash, createdAt: new Date().toISOString() },
             orders: [],
             tasks: [],
             settings: { businessName: '', businessPhone: '', businessMessage: '' }
@@ -28,14 +27,13 @@ const CloudDB = {
 
             if (!response.ok) throw new Error('Failed to create storage');
 
-            // Get the blob ID from Location header or URL
             const location = response.headers.get('Location') || '';
-            const storageId = location.split('/').pop() || this.extractIdFromResponse(response);
+            const storageId = location.split('/').pop();
 
-            if (!storageId) throw new Error('No storage ID returned');
+            if (!storageId) throw new Error('No storage ID');
 
-            // Also save a lookup entry so user can find their storage by username
-            await this.saveLookup(username, storageId);
+            // Save email → storageId mapping
+            await this.saveLookup(email, storageId);
 
             return { success: true, storageId };
         } catch (err) {
@@ -44,42 +42,39 @@ const CloudDB = {
         }
     },
 
-    // Login - find storage by username, verify PIN
-    async login(username, pin) {
+    // Login with email + password
+    async login(email, password) {
         try {
-            const storageId = await this.findStorageByUsername(username);
+            const storageId = await this.findStorageByEmail(email);
             if (!storageId) {
-                return { success: false, error: 'Account not found. Please create one first.' };
+                return { success: false, error: 'No account found with this email. Create one first.' };
             }
 
-            // Fetch data and verify PIN
             const data = await this.fetchData(storageId);
             if (!data || !data.auth) {
-                return { success: false, error: 'Account data corrupted. Create a new account.' };
+                return { success: false, error: 'Account data error. Create a new account.' };
             }
 
-            const pinHash = this.hashPin(pin);
-            if (data.auth.pinHash !== pinHash) {
-                return { success: false, error: 'Invalid PIN. Please try again.' };
+            const passHash = this.hashPassword(password);
+            if (data.auth.passHash !== passHash) {
+                return { success: false, error: 'Wrong password. Please try again.' };
             }
 
             return { success: true, storageId };
         } catch (err) {
             console.error('Login error:', err);
-            return { success: false, error: 'Network error. Check your internet.' };
+            return { success: false, error: 'Network error. Check internet.' };
         }
     },
 
     // === Data Operations ===
 
-    // Fetch all data from cloud
     async fetchData(storageId) {
         const response = await fetch(`${JSONBLOB_API}/${storageId}`);
         if (!response.ok) return null;
         return await response.json();
     },
 
-    // Save all data to cloud
     async saveData(storageId, data) {
         const response = await fetch(`${JSONBLOB_API}/${storageId}`, {
             method: 'PUT',
@@ -89,9 +84,9 @@ const CloudDB = {
         return response.ok;
     },
 
-    // === Order-specific storage for customer links ===
+    // === Customer Order Storage ===
 
-    // Save a single order to its own blob (for customer link)
+    // Save/update order data for customer link (creates its own blob)
     async saveOrderForCustomer(order, settings) {
         const payload = {
             order: {
@@ -114,9 +109,8 @@ const CloudDB = {
         };
 
         try {
-            // Check if order already has a blob ID
+            // If order already has a blob, update it (same link stays valid!)
             if (order.customerBlobId) {
-                // Update existing blob
                 const response = await fetch(`${JSONBLOB_API}/${order.customerBlobId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -134,35 +128,32 @@ const CloudDB = {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error('Failed to save order');
+            if (!response.ok) throw new Error('Failed');
 
             const location = response.headers.get('Location') || '';
             const blobId = location.split('/').pop();
-
             return { success: true, blobId };
         } catch (err) {
             console.error('Save order for customer error:', err);
-            return { success: false, error: 'Failed to save. Check internet.' };
+            return { success: false, error: 'Failed. Check internet.' };
         }
     },
 
-    // Fetch order data for customer view
+    // Fetch order for customer view
     async fetchOrderForCustomer(blobId) {
         try {
             const response = await fetch(`${JSONBLOB_API}/${blobId}`);
             if (!response.ok) return null;
             return await response.json();
         } catch (err) {
-            console.error('Fetch order error:', err);
             return null;
         }
     },
 
-    // === Username Lookup ===
-    // We use a known blob to store username -> storageId mappings
+    // === Email → StorageId Lookup ===
+    // Uses a separate blob as a lookup table
 
-    async saveLookup(username, storageId) {
-        // Get or create the lookup blob
+    async saveLookup(email, storageId) {
         let lookupId = localStorage.getItem('cu_lookup_id');
         let lookups = {};
 
@@ -170,10 +161,10 @@ const CloudDB = {
             try {
                 const existing = await this.fetchData(lookupId);
                 if (existing) lookups = existing;
-            } catch (e) { /* ignore */ }
+            } catch (e) { /* create new */ }
         }
 
-        lookups[username] = storageId;
+        lookups[email] = storageId;
 
         if (lookupId) {
             await fetch(`${JSONBLOB_API}/${lookupId}`, {
@@ -193,49 +184,39 @@ const CloudDB = {
         }
     },
 
-    async findStorageByUsername(username) {
-        // First check local session
+    async findStorageByEmail(email) {
+        // Check current session first
         const session = localStorage.getItem('cu_session');
         if (session) {
             const s = JSON.parse(session);
-            if (s.username === username && s.storageId) return s.storageId;
+            if (s.email === email && s.storageId) return s.storageId;
         }
 
-        // Check local lookup
+        // Check lookup blob
         const lookupId = localStorage.getItem('cu_lookup_id');
         if (lookupId) {
             try {
                 const lookups = await this.fetchData(lookupId);
-                if (lookups && lookups[username]) return lookups[username];
-            } catch (e) { /* ignore */ }
+                if (lookups && lookups[email]) return lookups[email];
+            } catch (e) { /* not found */ }
         }
 
         return null;
     },
 
     // === Utilities ===
-    hashPin(pin) {
-        let hash = 0;
-        const str = pin + '_cu_salt_2024';
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
+    hashPassword(pass) {
+        let hash1 = 0, hash2 = 0;
+        const s1 = pass + '_cu_salt_x7k2';
+        const s2 = pass + '_cu_pepper_m9q1';
+        for (let i = 0; i < s1.length; i++) {
+            hash1 = ((hash1 << 5) - hash1) + s1.charCodeAt(i);
+            hash1 = hash1 & hash1;
         }
-        // Make it longer/more unique
-        let hash2 = 0;
-        const str2 = pin + '_cu_pepper';
-        for (let i = 0; i < str2.length; i++) {
-            const char = str2.charCodeAt(i);
-            hash2 = ((hash2 << 7) - hash2) + char;
+        for (let i = 0; i < s2.length; i++) {
+            hash2 = ((hash2 << 7) - hash2) + s2.charCodeAt(i);
             hash2 = hash2 & hash2;
         }
-        return hash.toString(36) + '-' + hash2.toString(36);
-    },
-
-    extractIdFromResponse(response) {
-        const url = response.url || '';
-        const parts = url.split('/');
-        return parts[parts.length - 1] || null;
+        return hash1.toString(36) + '.' + hash2.toString(36);
     }
 };
