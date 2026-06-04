@@ -349,7 +349,7 @@
         </div>
     </div>
 
-    <!-- EmailJS SDK -->
+    <!-- EmailJS SDK - load first -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="js/storage.js"></script>
     <script>
@@ -366,6 +366,7 @@
 
         let pendingEmail = '';
         let pendingCode = '';
+        let emailjsReady = false;
 
         // Check if already logged in & init EmailJS
         (function() {
@@ -374,14 +375,18 @@
                 window.location.href = 'index.html';
                 return;
             }
-            // Init EmailJS with public key
-            try {
-                emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-                console.log('EmailJS initialized successfully');
-            } catch(e) {
-                console.error('EmailJS init error:', e);
-            }
         })();
+
+        // Initialize EmailJS when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                emailjs.init(EMAILJS_PUBLIC_KEY);
+                emailjsReady = true;
+                console.log('EmailJS ready!');
+            } catch(e) {
+                console.error('EmailJS init failed:', e);
+            }
+        });
 
         function showSection(id) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('show'));
@@ -413,25 +418,38 @@
             pendingEmail = email;
 
             try {
+                if (!emailjsReady) {
+                    // Try init again
+                    emailjs.init(EMAILJS_PUBLIC_KEY);
+                }
+
                 // Send email via EmailJS
-                const response = await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+                const templateParams = {
                     to_email: pendingEmail,
-                    passcode: pendingCode,
-                    message: `Your verification code is: ${pendingCode}`
-                });
+                    passcode: pendingCode
+                };
                 
-                console.log('EmailJS response:', response);
+                console.log('Sending with params:', templateParams);
+                console.log('Service:', EMAILJS_SERVICE_ID, 'Template:', EMAILJS_TEMPLATE_ID);
+                
+                const response = await emailjs.send(
+                    EMAILJS_SERVICE_ID, 
+                    EMAILJS_TEMPLATE_ID, 
+                    templateParams
+                );
+                
+                console.log('EmailJS success:', response);
 
                 // Show verify section
                 document.getElementById('verify-email-display').textContent = email;
                 showSection('section-verify-code');
-                showMsg(document.getElementById('verify-msg'), 'Code sent! Check your email.', 'success');
+                showMsg(document.getElementById('verify-msg'), 'Code sent! Check your email (and spam folder).', 'success');
             } catch (err) {
-                console.error('EmailJS send error:', err);
+                console.error('EmailJS send error:', JSON.stringify(err));
                 let errorMsg = 'Failed to send email. ';
                 if (err && err.text) errorMsg += err.text;
-                else if (err && err.message) errorMsg += err.message;
-                else errorMsg += 'Check EmailJS template variables (need: to_email, passcode).';
+                else if (typeof err === 'string') errorMsg += err;
+                else errorMsg += 'Check browser console for details.';
                 showMsg(msgEl, errorMsg, 'error');
             }
 
