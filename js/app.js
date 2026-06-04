@@ -18,47 +18,15 @@ const DB = {
     saveSettings: (settings) => localStorage.setItem('cu_settings', JSON.stringify(settings))
 };
 
-// Sync to cloud
+// Sync functions (data is local, customer links are cloud)
 async function syncToCloud() {
-    const session = getSession();
-    if (!session || !session.storageId) return;
-
-    const data = {
-        auth: { username: session.username, pinHash: '_preserved_', createdAt: session.loggedInAt },
-        orders: DB.getOrders(),
-        tasks: DB.getTasks(),
-        settings: DB.getSettings()
-    };
-
-    // Preserve auth pinHash from cloud
-    try {
-        const cloudData = await CloudDB.fetchData(session.storageId);
-        if (cloudData && cloudData.auth) {
-            data.auth = cloudData.auth;
-        }
-    } catch (e) { /* use local */ }
-
-    await CloudDB.saveData(session.storageId, data);
+    // Data stays in localStorage - no cloud sync needed for admin data
+    // Customer order blobs are synced individually when sharing links
 }
 
-// Sync from cloud (on load)
 async function syncFromCloud() {
-    const session = getSession();
-    if (!session || !session.storageId) return;
-
-    try {
-        const data = await CloudDB.fetchData(session.storageId);
-        if (!data) return;
-
-        if (data.orders) DB.saveOrders(data.orders);
-        if (data.tasks) DB.saveTasks(data.tasks);
-        if (data.settings) DB.saveSettings(data.settings);
-
-        // Refresh current page
-        refreshDashboard();
-    } catch (err) {
-        console.log('Cloud sync failed, using local data');
-    }
+    // Data is local - just refresh UI
+    refreshDashboard();
 }
 
 // Level definitions
