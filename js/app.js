@@ -281,7 +281,23 @@ function viewOrder(orderId) {
         ${order.notes ? `<div class="modal-detail-row"><span class="label">Notes</span><span class="value">${order.notes}</span></div>` : ''}
     `;
 
-    document.getElementById('modal-share-btn').onclick = () => handleShareLink(order);
+    document.getElementById('modal-share-btn').onclick = () => {
+        const settings = DB.getSettings();
+        const link = CloudDB.generateCustomerLink(order, settings);
+        _currentCustomerLink = link;
+        _currentCustomerName = order.customerName;
+        
+        // Copy directly to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('Link copied! Send to ' + order.customerName + ' ✓');
+            }).catch(() => {
+                fallbackCopy(link);
+            });
+        } else {
+            fallbackCopy(link);
+        }
+    };
     document.getElementById('modal-edit-btn').onclick = () => editOrder(order.id);
     document.getElementById('modal-delete-btn').onclick = () => deleteOrder(order.id);
     document.getElementById('order-modal').classList.add('active');
