@@ -296,6 +296,9 @@ document.getElementById('order-modal').addEventListener('click', (e) => {
 });
 
 // === Customer Link ===
+let _currentCustomerLink = '';
+let _currentCustomerName = '';
+
 async function handleShareLink(order) {
     const settings = DB.getSettings();
     const link = CloudDB.generateCustomerLink(order, settings);
@@ -303,14 +306,14 @@ async function handleShareLink(order) {
 }
 
 function showCustomerLinkPopup(order, link) {
-    // Remove existing popup
+    _currentCustomerLink = link;
+    _currentCustomerName = order.customerName;
+
     const existing = document.querySelector('.link-popup-overlay');
     if (existing) existing.remove();
 
     const popup = document.createElement('div');
     popup.className = 'link-popup-overlay';
-    popup.dataset.link = link;
-    popup.dataset.customerName = order.customerName;
     popup.innerHTML = `
         <div class="link-popup">
             <div class="link-popup-header">
@@ -319,16 +322,15 @@ function showCustomerLinkPopup(order, link) {
             </div>
             <p>Share this link with <strong>${order.customerName}</strong>:</p>
             <div class="link-box">
-                <input type="text" id="popup-link-input" value="${link}" readonly onclick="this.select()">
+                <textarea id="popup-link-input" readonly rows="3" style="width:100%;padding:10px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.75rem;resize:none;background:#f8fafc;word-break:break-all;"></textarea>
             </div>
             <div class="link-features">
                 <div><i class="fas fa-check" style="color:#16a34a"></i> Works on any phone/device</div>
-                <div><i class="fas fa-check" style="color:#16a34a"></i> No server needed</div>
-                <div><i class="fas fa-check" style="color:#16a34a"></i> Shows level, time & payment</div>
+                <div><i class="fas fa-check" style="color:#16a34a"></i> No internet needed to view</div>
             </div>
             <div class="link-popup-actions">
                 <button class="btn btn-primary" onclick="copyPopupLink()">
-                    <i class="fas fa-copy"></i> Copy
+                    <i class="fas fa-copy"></i> Copy Link
                 </button>
                 <button class="btn btn-whatsapp" onclick="shareViaWhatsApp()">
                     <i class="fab fa-whatsapp"></i> WhatsApp
@@ -340,26 +342,48 @@ function showCustomerLinkPopup(order, link) {
         </div>
     `;
     document.body.appendChild(popup);
+    // Set link value via JS (avoids HTML encoding issues with special chars)
+    document.getElementById('popup-link-input').value = link;
 }
 
 function copyPopupLink() {
-    const popup = document.querySelector('.link-popup-overlay');
-    const link = popup ? popup.dataset.link : '';
-    navigator.clipboard.writeText(link).then(() => {
-        showToast('Link copied! ✓');
-    }).catch(() => {
-        const input = document.getElementById('popup-link-input');
-        input.select();
+    const link = _currentCustomerLink;
+    if (!link) { showToast('No link to copy'); return; }
+
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(() => {
+            showToast('Link copied! ✓');
+        }).catch(() => {
+            fallbackCopy(link);
+        });
+    } else {
+        fallbackCopy(link);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    try {
         document.execCommand('copy');
         showToast('Link copied! ✓');
-    });
+    } catch (e) {
+        showToast('Long press the link and copy manually');
+    }
+    document.body.removeChild(textarea);
 }
 
 function shareViaWhatsApp() {
-    const popup = document.querySelector('.link-popup-overlay');
-    if (!popup) return;
-    const link = popup.dataset.link;
-    const name = popup.dataset.customerName;
+    const link = _currentCustomerLink;
+    const name = _currentCustomerName;
+    if (!link) return;
     const msg = `Hi ${name}, check your order status here:\n${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
 }
