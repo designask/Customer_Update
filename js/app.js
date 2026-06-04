@@ -287,15 +287,17 @@ function viewOrder(orderId) {
         _currentCustomerLink = link;
         _currentCustomerName = order.customerName;
         
-        // Copy directly to clipboard
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(link).then(() => {
-                showToast('Link copied! Send to ' + order.customerName + ' ✓');
+        // Try Web Share API first (best on mobile - opens native share sheet)
+        if (navigator.share) {
+            navigator.share({
+                title: order.title + ' - Order Status',
+                text: 'Hi ' + order.customerName + ', check your order status:',
+                url: link
             }).catch(() => {
-                fallbackCopy(link);
+                showCopyPopup(link, order.customerName);
             });
         } else {
-            fallbackCopy(link);
+            showCopyPopup(link, order.customerName);
         }
     };
     document.getElementById('modal-edit-btn').onclick = () => editOrder(order.id);
@@ -366,34 +368,67 @@ function copyPopupLink() {
     const link = _currentCustomerLink;
     if (!link) { showToast('No link to copy'); return; }
 
-    // Try modern clipboard API first
+    // Select the textarea text
+    const textarea = document.getElementById('popup-link-input');
+    if (textarea) {
+        textarea.focus();
+        textarea.select();
+    }
+
+    // Try clipboard API
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(() => {
             showToast('Link copied! ✓');
         }).catch(() => {
-            fallbackCopy(link);
+            // execCommand fallback
+            try { document.execCommand('copy'); showToast('Link copied! ✓'); } 
+            catch(e) { showToast('Select all text above and copy manually'); }
         });
     } else {
-        fallbackCopy(link);
+        try { document.execCommand('copy'); showToast('Link copied! ✓'); }
+        catch(e) { showToast('Select all text above and copy manually'); }
     }
 }
 
-function fallbackCopy(text) {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
-    textarea.style.top = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    try {
-        document.execCommand('copy');
-        showToast('Link copied! ✓');
-    } catch (e) {
-        showToast('Long press the link and copy manually');
-    }
-    document.body.removeChild(textarea);
+// Show a popup with the link visible for manual copy
+function showCopyPopup(link, customerName) {
+    _currentCustomerLink = link;
+    _currentCustomerName = customerName;
+
+    const existing = document.querySelector('.link-popup-overlay');
+    if (existing) existing.remove();
+
+    const popup = document.createElement('div');
+    popup.className = 'link-popup-overlay';
+    popup.innerHTML = `
+        <div class="link-popup">
+            <div class="link-popup-header">
+                <h3><i class="fas fa-share-alt"></i> Share Link</h3>
+                <button class="modal-close" onclick="this.closest('.link-popup-overlay').remove()">&times;</button>
+            </div>
+            <p>Long-press to select & copy, or tap Copy button:</p>
+            <div class="link-box">
+                <textarea id="popup-link-input" rows="4" readonly style="width:100%;padding:12px;border:2px solid #2563eb;border-radius:8px;font-size:0.8rem;resize:none;background:#eff6ff;word-break:break-all;color:#1e293b;-webkit-user-select:all;user-select:all;"></textarea>
+            </div>
+            <div class="link-popup-actions">
+                <button class="btn btn-primary" onclick="copyPopupLink()">
+                    <i class="fas fa-copy"></i> Copy Link
+                </button>
+                <button class="btn btn-whatsapp" onclick="shareViaWhatsApp()">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </button>
+                <button class="btn btn-secondary" onclick="this.closest('.link-popup-overlay').remove()">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
+    
+    // Set value and auto-select
+    const textarea = document.getElementById('popup-link-input');
+    textarea.value = link;
+    setTimeout(() => { textarea.focus(); textarea.select(); }, 100);
 }
 
 function shareViaWhatsApp() {
